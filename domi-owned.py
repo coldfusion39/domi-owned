@@ -186,7 +186,7 @@ def enum_accounts(url, username, password):
 	for page in range(1, 100000, 30):
 		try:
 			pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}".format(url, page)
-			request = session.get(pages, timeout=(30), verify=False)
+			request = session.get(pages, timeout=(60), verify=False)
 			if request.status_code == 200:
 				soup = BeautifulSoup(request.text, 'lxml')
 				empty_page = soup.findAll('h2')
@@ -282,7 +282,7 @@ def print_warn(msg):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(
-		prog='Dominos-OWN.py',
+		prog='domi-owned.py',
 		formatter_class=argparse.RawDescriptionHelpFormatter,
 		description=("""
          __________   __________ __________ 
