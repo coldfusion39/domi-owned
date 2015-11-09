@@ -139,7 +139,8 @@ def check_access(url, username, password, version):
 	session = requests.Session()
 	session.auth = (username, password)
 
-	header = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
+	header = {
+		'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
 		'Accept': '*/*',
 		'Accept-Language': 'en-US,en;q=0.5',
 		'Accept-Encoding': 'gzip, deflate',
@@ -311,7 +312,8 @@ if __name__ == '__main__':
 	username = args.username
 	password = ' '.join(args.password)
 
-	HEADER = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
+	HEADER = {
+		'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
 		'Accept': '*/*',
 		'Accept-Language': 'en-US,en;q=0.5',
 		'Accept-Encoding': 'gzip, deflate',
