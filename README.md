@@ -4,7 +4,7 @@ IBM/Lotus Domino exploitation
 ## Summary ##
 Domi-Owned is a tool used for compromising IBM/Lotus Domino servers. 
 
-Tested on IBM/Lotus Domino 8.5.3, 9.0.0, and 9.0.1 running on Windows.
+Tested on IBM/Lotus Domino 8.5.2, 8.5.3, 9.0.0, and 9.0.1 running on Windows.
 
 ## Usage ##
 A valid username and password is not required unless `names.nsf` and/or `webadmin.nsf` requires authentication.

