@@ -312,22 +312,18 @@ def get_domino_hash(response):
 def write_hash(duser, dhash):
 		# Lotus Domino 5 format: 3dd2e1e5ac03e230243d58b8c5ada076
 		if len(dhash) == 34:
-			with open('domino_5_hashes.txt', 'a') as format_five:
-				hash_format = "{0}:{1}\n".format(duser, dhash.strip('()'))
-				format_five.write(hash_format)
-			format_five.close()
+			dhash = dhash.strip('()')
+			with open('domino_5_hashes.txt', 'a') as outfile:
 		# Lotus Domino 6 format: (GDpOtD35gGlyDksQRxEU)
 		elif len(dhash) == 22:
-			with open('domino_6_hashes.txt', 'a') as format_six:
-				hash_format = "{0}:{1}\n".format(duser, dhash)
-				format_six.write(hash_format)
-			format_six.close()
+			with open('domino_6_hashes.txt', 'a') as outfile:
 		# Lotus Domino 8 format: (HsjFebq0Kh9kH7aAZYc7kY30mC30mC3KmC30mCluagXrvWKj1)
 		else:
-			with open('domino_8_hashes.txt', 'a') as format_eight:
-				hash_format = "{0}:{1}\n".format(duser, dhash)
-				format_eight.write(hash_format)
-			format_eight.close()
+			with open('domino_8_hashes.txt', 'a') as outfile:
+
+		hash_format = "{0}:{1}\n".format(duser, dhash)
+		outfile.write(hash_format)
+		outfile.close()
 
 def print_error(msg):
 	print "\033[1m\033[31m[-]\033[0m {0}".format(msg)
