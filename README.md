@@ -1,6 +1,4 @@
 # Domi-Owned
-IBM/Lotus Domino exploitation 
-
 ## Summary ##
 Domi-Owned is a tool used for compromising IBM/Lotus Domino servers. 
 
