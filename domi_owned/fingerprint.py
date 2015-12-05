@@ -23,8 +23,6 @@ from domi_owned import utility
 
 # Get Domino version
 def fingerprint(target, header):
-	domino_version = None
-
 	version_files = ['download/filesets/l_LOTUS_SCRIPT.inf', 
 			'download/filesets/n_LOTUS_SCRIPT.inf',
 			'download/filesets/l_SEARCH.inf',
@@ -34,16 +32,14 @@ def fingerprint(target, header):
 	for version_file in version_files:
 		try:
 			version_url = "{0}/{1}".format(target, version_file)
-			request = requests.get(version_url, timeout=(5), headers=header, verify=False)
+			request = requests.get(version_url, headers=header, verify=False)
 			if request.status_code == 200:
 				version_regex = re.search("(?i)version=([0-9].[0-9].[0-9])", request.text)
 				if version_regex:
 					domino_version = version_regex.group(1)
 					break
-			else:
-				continue
-
-		except:
+		except Exception as error:
+			utility.print_error("Error: {0}".format(error))
 			continue
 
 	if domino_version:
@@ -51,22 +47,34 @@ def fingerprint(target, header):
 	else:
 		utility.print_warn('Unable to fingerprint Domino version!')
 
-# Check for open authentication to names.nsf and webadmin.nsf
-def check_portals(target, header):
+# Check for access to names.nsf and webadmin.nsf
+def check_portals(target, header, username, password):
+	session = requests.Session()
+	session.auth = (username, password)
+
 	portals = ['names.nsf', 'webadmin.nsf']
+
 	for portal in portals:
 		try:
 			portal_url = "{0}/{1}".format(target, portal)
-			request = requests.get(portal_url, headers=header, verify=False)
+			request = session.get(portal_url, headers=header, verify=False)
+			# Handle 200 responses
 			if request.status_code == 200:
 				if 'form method="post"' in request.text:
-					utility.print_warn("{0}/{1} requires authentication".format(target, portal))
+					utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
+				elif len(username) > 0:
+					utility.print_good("{0} has access to {1}/{2}".format(username, target, portal))
 				else:
-					utility.print_good("{0}/{1} does NOT require authentication".format(target, portal))
+					utility.print_good("{0}/{1} does not require authentication".format(target, portal))
+			# Handle 401 responses
 			elif request.status_code == 401:
-				utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
+				if len(username) > 0:
+					utility.print_warn("{0} does not have access to {1}/{2}!".format(username, target, portal))
+				else:
+					utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
+			# Handle all other responses
 			else:
 				utility.print_warn("Could not find {0}!".format(portal))
-
-		except:
+		except Exception as error:
+			utility.print_error("Error: {0}".format(error))
 			continue
