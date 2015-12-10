@@ -20,11 +20,11 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-from domi_owned import utility
 from simple_requests import Requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+from domi_owned import utility
+
+requests.packages.urllib3.disable_warnings()
 
 # Get user profile URLs
 def enum_accounts(target, header, username, password):
@@ -37,7 +37,7 @@ def enum_accounts(target, header, username, password):
 	for page in range(1, 100000, 1000):
 		try:
 			pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}&Count=1000".format(target, page)
-			request = session.get(pages, headers=header, timeout=(60), verify=False)
+			request = session.get(pages, headers=header, timeout=60, verify=False)
 			if request.status_code == 200:
 				if 'form method="post"' in request.text:
 					utility.print_warn('Unable to access names.nsf, bad username or password!')
@@ -131,7 +131,8 @@ def write_hash(duser, dhash):
 	else:
 		outfile = 'Domino_8_hashes.txt'
 
-	with open(outfile, 'a') as output:
-		hash_format = "{0}:{1}\n".format(duser, dhash)
-		output.write(hash_format)
+	# Write to file
+	output = open(outfile, 'a')
+	hash_format = "{0}:{1}\n".format(duser, dhash)
+	output.write(hash_format)
 	output.close()

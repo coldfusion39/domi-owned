@@ -21,7 +21,10 @@ import cmd
 import re
 import requests
 import urllib
+
 from domi_owned import utility
+
+requests.packages.urllib3.disable_warnings()
 
 class Interactive(cmd.Cmd, object):
 	"""Interact with Domino Quick Console through web requests"""

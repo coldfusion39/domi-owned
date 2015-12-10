@@ -19,11 +19,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import argparse
+import fake_useragent
+import os
 import sys
-from domi_owned import utility
+
 from domi_owned import fingerprint
 from domi_owned import hashdump
 from domi_owned import quickconsole
+from domi_owned import utility
 
 sys.dont_write_bytecode = True
 
@@ -54,28 +57,34 @@ if __name__ == '__main__':
 	parser.add_argument('--quickconsole', help='Interact with Domino Quick Console', action='store_true', required=False)
 	args = parser.parse_args()
 
-	HEADER = {
-		'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36',
+	# Process Domino URL
+	target = utility.process_url(args.url)
+	if target == None:
+		utility.print_warn('Please provide a valid URL!')
+		sys.exit(0)
+
+	# Setup headers
+	user_agent = fake_useragent.UserAgent()
+	header = {
+		'User-Agent': user_agent.random,
 		'Accept': '*/*',
 		'Accept-Language': 'en-US,en;q=0.5',
 		'Accept-Encoding': 'gzip, deflate',
 		'Connection': 'keep-alive'
 	}
-	# Process Domino URL
-	target = utility.process_url(args.url)
 
 	# Interact with quick console
 	if args.quickconsole:
 		utility.print_status('Accessing Domino Quick Console...')
-		quickconsole.check_access(target, HEADER, args.username, ' '.join(args.password))
+		quickconsole.check_access(target, header, args.username, ' '.join(args.password))
 
 	# Dump hashes
 	elif args.hashdump:
 		utility.print_status('Enumerating accounts...')
-		hashdump.enum_accounts(target, HEADER, args.username, ' '.join(args.password))
+		hashdump.enum_accounts(target, header, args.username, ' '.join(args.password))
 
 	# Fingerprint
 	else:
 		utility.print_status('Fingerprinting Domino server...')
-		fingerprint.fingerprint(target, HEADER)
-		fingerprint.check_portals(target, HEADER, args.username, ' '.join(args.password))
+		fingerprint.fingerprint(target, header)
+		fingerprint.check_portals(target, header, args.username, ' '.join(args.password))
