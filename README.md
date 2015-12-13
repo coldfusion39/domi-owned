@@ -14,6 +14,11 @@ as well as check if 'names.nsf' and 'webadmin.nsf' requires authentication.
 If a username and password is given, Domi-Owned will check to see if that account can
 access 'names.nsf' and 'webadmin.nsf' with those credentials.
 
+#### Reverse Bruteforce ####
+To perform a Reverse Bruteforce attack against a Domino server, specify a file containing
+a list of usernames with `-U`, a password with `-p`, and the `--bruteforce` flag.
+Domi-Owned will then try to authenticate to 'names.nsf', returning successful accounts.
+
 #### Dump Hashes ####
 To dump all Domino accounts with a __non-empty__ hash from 'names.nsf', run Domi-Owned with the `--hashdump` flag.
 This prints the results to the screen and writes them to separate out files depending on the hash type (Domino 5, Domino 6, Domino 8).
@@ -31,6 +36,10 @@ interpreter, which will also delete the 'log.txt' output file.
 ###### Fingerprint Domino server
 
 `python domi-owned.py --url http://domino-server.com`
+
+###### Preform a reverse bruteforce attack
+
+`python domi-owned.py --url http://domino-server.com -U ./usernames.txt -p password --bruteforce`
 
 ###### Dump Domino account hashes
 
