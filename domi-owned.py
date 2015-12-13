@@ -26,6 +26,7 @@ import sys
 from domi_owned import fingerprint
 from domi_owned import hashdump
 from domi_owned import quickconsole
+from domi_owned import bruteforce
 from domi_owned import utility
 
 sys.dont_write_bytecode = True
@@ -52,16 +53,12 @@ if __name__ == '__main__':
 """))
 	parser.add_argument('--url', help='Domino server URL', required=True)
 	parser.add_argument('-u', '--username', help='Username', default='', required=False)
+	parser.add_argument('-U', '--usernames', help='Username list for reverse bruteforce', default='', required=False)
 	parser.add_argument('-p', '--password', help='Password', default='', nargs='+', required=False)
 	parser.add_argument('--hashdump', help='Dump Domino hashes', action='store_true', required=False)
 	parser.add_argument('--quickconsole', help='Interact with Domino Quick Console', action='store_true', required=False)
+	parser.add_argument('--bruteforce', help='Reverse bruteforce Domino server', action='store_true', required=False)
 	args = parser.parse_args()
-
-	# Process Domino URL
-	target = utility.process_url(args.url)
-	if target == None:
-		utility.print_warn('Please provide a valid URL!')
-		sys.exit(0)
 
 	# Setup headers
 	user_agent = fake_useragent.UserAgent()
@@ -73,6 +70,12 @@ if __name__ == '__main__':
 		'Connection': 'keep-alive'
 	}
 
+	# Process Domino URL
+	target = utility.process_url(args.url)
+	if target == None:
+		utility.print_warn('Please provide a valid URL!')
+		sys.exit(0)
+
 	# Interact with quick console
 	if args.quickconsole:
 		utility.print_status('Accessing Domino Quick Console...')
@@ -80,8 +83,16 @@ if __name__ == '__main__':
 
 	# Dump hashes
 	elif args.hashdump:
-		utility.print_status('Enumerating accounts...')
+		utility.print_status("Enumerating accounts for {0}...".format(target))
 		hashdump.enum_accounts(target, header, args.username, ' '.join(args.password))
+
+	# Reverse bruteforce
+	elif args.bruteforce:
+		if os.path.isfile(args.usernames):
+			utility.print_status("Starting reverse bruteforce with {0} as the password...".format(' '.join(args.password)))
+			bruteforce.get_auth_type(target, header, args.usernames, ' '.join(args.password))
+		else:
+			utility.print_warn('You must supply a file containing a list of usernames!')
 
 	# Fingerprint
 	else:

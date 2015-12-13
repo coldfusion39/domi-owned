@@ -65,25 +65,37 @@ def check_portals(target, header, username, password):
 	for portal in portals:
 		try:
 			portal_url = "{0}/{1}".format(target, portal)
-			request = session.get(portal_url, headers=header, timeout=10, allow_redirects=False, verify=False)
+			request = session.get(portal_url, headers=header, timeout=5, verify=False)
 			# Handle 200 response
 			if request.status_code == 200:
 				post_regex = re.search('((?i)method=\'post\'|method=\"post\"|method=post)', request.text)
 				notes_regex = re.search('((?i)name=\'NotesView\'|name=\"NotesView\"|name=NotesView)', request.text)
-				if len(username) > 0:
-					if post_regex:
-						utility.print_warn("{0} does not have access to {1}/{2}".format(username, target, portal))
-					elif notes_regex:
-						utility.print_good("{0} has access to {1}/{2}".format(username, target, portal))
+				if portal == 'names.nsf':
+					if len(username) > 0:
+						if post_regex:
+							utility.print_warn("{0} does not have access to {1}/{2}".format(username, target, portal))
+						elif notes_regex:
+							utility.print_good("{0} has access to {1}/{2}".format(username, target, portal))
+						else:
+							utility.print_warn("Unable to access {0}!".format(portal))
 					else:
-						utility.print_warn("Unable to access {0}!".format(portal))
+						if post_regex:
+							utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
+						elif notes_regex:
+							utility.print_good("{0}/{1} does not require authentication".format(target, portal))
+						else:
+							utility.print_warn("Unable to access {0}!".format(portal))
 				else:
-					if post_regex:
-						utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
-					elif notes_regex:
-						utility.print_good("{0}/{1} does not require authentication".format(target, portal))
+					if len(username) > 0:
+						if post_regex:
+							utility.print_warn("{0} does not have access to {1}/{2}".format(username, target, portal))
+						else:
+							utility.print_good("{0} has access to {1}/{2}".format(username, target, portal))
 					else:
-						utility.print_warn("Unable to access {0}!".format(portal))
+						if post_regex:
+							utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
+						else:
+							utility.print_good("{0}/{1} does not require authentication".format(target, portal))
 			# Handle 401 response
 			elif request.status_code == 401:
 				if len(username) > 0:

