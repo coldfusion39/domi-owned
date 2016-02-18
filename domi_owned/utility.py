@@ -20,12 +20,13 @@
 import re
 
 def process_url(url):
-	url_regex = re.search("((?i)(https?)://([a-z0-9.-]+))", url)
-	if url_regex:
-		target = url_regex.group(1)
-		return target
+	url_regex = re.compile('https?://[a-z0-9\-.:]+', re.I)
+	if url_regex.search(url):
+		target = url_regex.search(url).group(0)
 	else:
-		return None
+		target = None
+
+	return target
 
 def print_error(msg):
 	print "\033[1m\033[31m[-]\033[0m {0}".format(msg)

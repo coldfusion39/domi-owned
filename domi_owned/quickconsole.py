@@ -26,9 +26,8 @@ from domi_owned import utility
 
 requests.packages.urllib3.disable_warnings()
 
+# Interact with Domino Quick Console through web requests
 class Interactive(cmd.Cmd, object):
-	"""Interact with Domino Quick Console through web requests"""
-
 	def __init__(self, target, os, header, path, username, password, user, hostname):
 		cmd.Cmd.__init__(self)
 		self.target = target
@@ -110,6 +109,8 @@ def check_access(target, header, username, password):
 	try:
 		webadmin_url = "{0}/webadmin.nsf".format(target)
 		check_webadmin = session.get(webadmin_url, headers=header, verify=False)
+
+		# Handle 200 response
 		if check_webadmin.status_code == 200:
 			if 'form method="post"' in check_webadmin.text:
 				utility.print_warn('Unable to access webadmin.nsf, maybe you are not admin?!')
@@ -119,18 +120,17 @@ def check_access(target, header, username, password):
 
 				# Get operating system
 				if 'UNIX' in check_path.text:
-					path_regex = re.search("DataDirectory\s*=\s*'((?i)/.+)';", check_path.text)
+					path_regex = re.compile("DataDirectory\s*=\s*'((?i)/.+)';")
 					os = 'linux'
 				elif 'Windows' in check_path.text:
-					path_regex = re.search('>(?i)([a-z]:\\\\[a-z0-9()].+\\\\[a-z].+)\\\\domino\\\\data', check_path.text)
-					os = 'windows'
-				# Default to Windows
+					path_regex = re.compile('>([a-z]:\\\\[a-z0-9()].+\\\\[a-z].+)\\\\domino\\\\data', re.I)
+					os - 'windows'
 				else:
 					os = 'windows'
 					utility.print_status('Could not identify Domino operating system!')
 
-				if path_regex:
-					local_path = path_regex.group(1)
+				if path_regex.match(check_path.text):
+					local_path = path_regex.search(check_path.text).group(1)
 				else:
 					local_path = None
 					utility.print_status('Could not identify Domino file path!')
@@ -141,10 +141,15 @@ def check_access(target, header, username, password):
 					Interactive(target, os, header, path, username, password, whoami, hostname).cmdloop()
 				else:
 					utility.print_warn('Unable to access webadmin.nsf!')
+
+		# Handle 401 response
 		elif check_webadmin.status_code == 401:
 			utility.print_warn('Unable to access webadmin.nsf, maybe you are not admin?!')
+
+		# Handle other responses
 		else:
 			utility.print_warn('Unable to find webadmin.nsf!')
+
 	except Exception as error:
 		utility.print_error("Error: {0}".format(error))
 
@@ -162,6 +167,7 @@ def test_command(target, os, header, path, username, password):
 			'C:\\Program Files (x86)\\IBM\\Lotus',    # 8.5.3 Windows x86
 			'C:\\Lotus'                               # Not sure, but just in case
 		]
+
 	# Linux default Domino install path
 	else:
 		paths = ['/local/notesdata']                  # 9.0.1 Ubuntu x32
@@ -186,15 +192,16 @@ def test_command(target, os, header, path, username, password):
 				get_response = session.get(response_url, headers=header, verify=False)
 				if get_response.status_code == 200:
 					if os == 'windows':
-						user_regex = re.search(".+\\\\(.+)", get_response.text)
+						user_regex = re.compile('.+\\\\(.+)')
 					else:
-						user_regex = re.search("((?i)[a-z0-9-_].+):(.+)", get_response.text)
-						hostname = user_regex.group(2)
+						user_regex = re.compile('([a-z0-9-_].+):(.+)', re.I)
+						hostname = user_regex.search(get_response.text).group(2)
 
-					if user_regex:
-						whoami = user_regex.group(1)
+					if user_regex.search(get_response.text).group(1):
+						whoami = user_regex.search(get_response.text).group(1)
 						utility.print_good("Running as {0}".format(whoami))
 						break
+
 		except:
 			continue
 
