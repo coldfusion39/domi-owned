@@ -19,7 +19,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import argparse
-import fake_useragent
 import os
 import sys
 
@@ -53,49 +52,41 @@ if __name__ == '__main__':
 """))
 	parser.add_argument('--url', help='Domino server URL', required=True)
 	parser.add_argument('-u', '--username', help='Username', default='', required=False)
-	parser.add_argument('-U', '--usernames', help='Username list for reverse bruteforce', default='', required=False)
+	parser.add_argument('-U', '--usernames', help='Username list for reverse brute force', default='', required=False)
 	parser.add_argument('-p', '--password', help='Password', default='', nargs='+', required=False)
 	parser.add_argument('--hashdump', help='Dump Domino hashes', action='store_true', required=False)
 	parser.add_argument('--quickconsole', help='Interact with Domino Quick Console', action='store_true', required=False)
-	parser.add_argument('--bruteforce', help='Reverse bruteforce Domino server', action='store_true', required=False)
+	parser.add_argument('--bruteforce', help='Reverse brute force Domino server', action='store_true', required=False)
 	args = parser.parse_args()
 
-	# Setup headers
-	user_agent = fake_useragent.UserAgent()
-	header = {
-		'User-Agent': user_agent.random,
-		'Accept': '*/*',
-		'Accept-Language': 'en-US,en;q=0.5',
-		'Accept-Encoding': 'gzip, deflate',
-		'Connection': 'keep-alive'
-	}
-
 	# Process Domino URL
-	target = utility.process_url(args.url)
+	target = utility.check_url(args.url)
 	if target == None:
 		utility.print_warn('Please provide a valid URL!')
-		sys.exit(0)
-
-	# Interact with quick console
-	if args.quickconsole:
-		utility.print_status('Accessing Domino Quick Console...')
-		quickconsole.check_access(target, header, args.username, ' '.join(args.password))
-
-	# Dump hashes
-	elif args.hashdump:
-		utility.print_status("Enumerating accounts for {0}...".format(target))
-		hashdump.enum_accounts(target, header, args.username, ' '.join(args.password))
-
-	# Reverse bruteforce
-	elif args.bruteforce:
-		if os.path.isfile(args.usernames):
-			utility.print_status("Starting reverse bruteforce with {0} as the password...".format(' '.join(args.password)))
-			bruteforce.get_auth_type(target, header, args.usernames, ' '.join(args.password))
-		else:
-			utility.print_warn('You must supply a file containing a list of usernames!')
-
-	# Fingerprint
 	else:
-		utility.print_status('Fingerprinting Domino server...')
-		fingerprint.fingerprint(target, header)
-		fingerprint.check_portals(target, header, args.username, ' '.join(args.password))
+
+		# Detect type of authentication the Domino server is using
+		auth_type = utility.detect_auth(target)
+
+		# Interact with quick console
+		if args.quickconsole:
+			utility.print_status('Accessing Domino Quick Console...')
+			quickconsole.check_access(target, args.username, ' '.join(args.password), auth_type)
+
+		# Dump hashes
+		elif args.hashdump:
+			utility.print_status("Enumerating accounts for {0}...".format(target))
+			hashdump.enum_accounts(target, args.username, ' '.join(args.password), auth_type)
+
+		# Reverse brute force
+		elif args.bruteforce:
+			if os.path.isfile(args.usernames):
+				utility.print_status("Starting reverse brute force with {0} as the password...".format(' '.join(args.password)))
+				bruteforce.reverse_bruteforce(target, args.usernames, ' '.join(args.password), auth_type)
+			else:
+				utility.print_warn('You must supply a file containing a list of usernames!')
+
+		# Fingerprint
+		else:
+			utility.print_status('Fingerprinting Domino server...')
+			fingerprint.fingerprint(target, args.username, ' '.join(args.password), auth_type)

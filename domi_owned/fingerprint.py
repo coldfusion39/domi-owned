@@ -22,10 +22,13 @@ import requests
 
 from domi_owned import utility
 
-requests.packages.urllib3.disable_warnings()
+try:
+	requests.packages.urllib3.disable_warnings()
+except:
+	pass
 
 # Get Domino version
-def fingerprint(target, header):
+def fingerprint(target, username, password, auth):
 	domino_version = None
 
 	version_files = ['download/filesets/l_LOTUS_SCRIPT.inf', 
@@ -40,7 +43,7 @@ def fingerprint(target, header):
 	for version_file in version_files:
 		try:
 			version_url = "{0}/{1}".format(target, version_file)
-			request = requests.get(version_url, headers=header, timeout=5, allow_redirects=False, verify=False)
+			request = requests.get(version_url, headers=utility.get_headers(), timeout=5, allow_redirects=False, verify=False)
 			if request.status_code == 200:
 				version_regex = re.compile('(version=|version\":\"|domino administrator |domino |release )([0-9.]{1,7})(\s|\")', re.I)
 				if version_regex.search(request.text):
@@ -55,59 +58,44 @@ def fingerprint(target, header):
 	else:
 		utility.print_warn('Unable to fingerprint Domino version!')
 
-# Check for access to names.nsf and webadmin.nsf
-def check_portals(target, header, username, password):
-	session = requests.Session()
-	session.auth = (username, password)
+	check_portals(target, username, password, auth)
 
+# Check for access to names.nsf and webadmin.nsf
+def check_portals(target, username, password, auth):
 	portals = ['names.nsf', 'webadmin.nsf']
 
 	for portal in portals:
+		portal_url = "{0}/{1}".format(target, portal)
 		try:
-			portal_url = "{0}/{1}".format(target, portal)
-			request = session.get(portal_url, headers=header, timeout=5, verify=False)
-
-			# Handle 200 response
-			if request.status_code == 200:
-				post_regex = re.compile('method=\'post\'|method=\"post\"|method=post', re.I)
-				notes_regex = re.compile('name=\'NotesView\'|name=\"NotesView\"|name=NotesView', re.I)
-				if portal == 'names.nsf':
-					if len(username) > 0:
-						if post_regex.match(request.text):
-							utility.print_warn("{0} does not have access to {1}/{2}".format(username, target, portal))
-						elif notes_regex.match(request.text):
-							utility.print_good("{0} has access to {1}/{2}".format(username, target, portal))
-						else:
-							utility.print_warn("Unable to access {0}!".format(portal))
-					else:
-						if post_regex.match(request.text):
-							utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
-						elif notes_regex.match(request.text):
-							utility.print_good("{0}/{1} does not require authentication".format(target, portal))
-						else:
-							utility.print_warn("Unable to access {0}!".format(portal))
-				else:
-					if len(username) > 0:
-						if post_regex.match(request.text):
-							utility.print_warn("{0} does not have access to {1}/{2}".format(username, target, portal))
-						else:
-							utility.print_good("{0} has access to {1}/{2}".format(username, target, portal))
-					else:
-						if post_regex.match(request.text):
-							utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
-						else:
-							utility.print_good("{0}/{1} does not require authentication".format(target, portal))
-
-			# Handle 401 response
-			elif request.status_code == 401:
-				if len(username) > 0:
-					utility.print_warn("{0} does not have access to {1}/{2}".format(username, target, portal))
-				else:
-					utility.print_warn("{0}/{1} requires authentication!".format(target, portal))
-
-			# Handle other responses
-			else:
+			# Page not eternally accessible
+			if auth == None:
 				utility.print_warn("Could not find {0}!".format(portal))
+
+			# Basic authentication
+			elif auth == 'basic':
+				if len(username) > 0:
+					access = utility.basic_auth(portal_url, username, password)
+					if access:
+						utility.print_good("{0} has access to {1}".format(username, portal_url))
+					else:
+						utility.print_warn("{0} does not have access to {1}".format(username, portal_url))
+				else:
+					utility.print_warn("{0} requires authentication!".format(portal_url))
+
+			# Form authentication
+			elif auth == 'form':
+				if len(username) > 0:
+					access, session = utility.form_auth(portal_url, username, password)
+					if access:
+						utility.print_good("{0} has access to {1}".format(username, portal_url))
+					else:
+						utility.print_warn("{0} does not have access to {1}".format(username, portal_url))
+				else:
+					utility.print_warn("{0} requires authentication!".format(portal_url))
+
+			# Page does not require authentication
+			else:
+				utility.print_good("{0} does not require authentication".format(portal_url))
 
 		except Exception as error:
 			utility.print_error("Error: {0}".format(error))

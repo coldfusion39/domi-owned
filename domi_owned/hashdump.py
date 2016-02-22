@@ -24,48 +24,50 @@ from simple_requests import Requests
 
 from domi_owned import utility
 
-requests.packages.urllib3.disable_warnings()
+try:
+	requests.packages.urllib3.disable_warnings()
+except:
+	pass
 
 # Get user profile URLs
-def enum_accounts(target, header, username, password):
+def enum_accounts(target, username, password, auth):
 	accounts = []
 	account_urls = []
 
-	session = requests.Session()
-	session.auth = (username, password)
+	names_url = "{0}/names.nsf".format(target)
 
 	for page in range(1, 100000, 1000):
+		pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}&Count=1000".format(target, page)
 		try:
-			pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}&Count=1000".format(target, page)
-			request = session.get(pages, headers=header, timeout=60, verify=False)
+			if auth == 'basic':
+				access = utility.basic_auth(names_url, username, password)
+			elif auth == 'form':
+				access, session = utility.form_auth(names_url, username, password)
+			else:
+				access = None
 
-			# Handle 200 response
-			if request.status_code == 200:
-				if 'form method="post"' in request.text:
-					utility.print_warn('Unable to access names.nsf, bad username or password!')
+			if access or auth == 'open':
+				if auth == 'basic':
+					request = requests.get(pages, headers=utility.get_headers(), auth=(username, password), timeout=60, verify=False)
+				elif auth == 'form':
+					request = session.get(pages, headers=utility.get_headers(), timeout=60, verify=False)
+				else:
+					request = requests.get(pages, headers=utility.get_headers(), timeout=60, verify=False)
+
+				soup = BeautifulSoup(request.text, 'lxml')
+				empty_page = soup.findAll('h2')
+				if empty_page:
 					break
 				else:
-					soup = BeautifulSoup(request.text, 'lxml')
-					empty_page = soup.findAll('h2')
-					if empty_page:
-						break
-					else:
-						links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
-						for link in links:
-							account_regex = re.compile('/([a-f0-9]{32}/[a-f0-9]{32})', re.I)
-							if account_regex.match(link) and account_regex.search(link).group(1) not in accounts:
-								accounts.append(account_regex.search(link).group(1))
-							else:
-								pass
-
-			# Handle 401 response
-			elif request.status_code == 401:
-				utility.print_warn('Unable to access names.nsf, bad username or password!')
-				break
-
-			# Handle other responses
+					links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
+					for link in links:
+						account_regex = re.compile('/([a-f0-9]{32}/[a-f0-9]{32})', re.I)
+						if account_regex.search(link) and account_regex.search(link).group(1) not in accounts:
+							accounts.append(account_regex.search(link).group(1))
+						else:
+							pass
 			else:
-				utility.print_warn('Could not connect to Domino server!')
+				utility.print_warn("Unable to access {0}, bad username or password!".format(names_url))
 				break
 
 		except Exception as error:
@@ -81,12 +83,12 @@ def enum_accounts(target, header, username, password):
 		for unid in accounts:
 			account_urls.append("{0}/names.nsf/{1}?OpenDocument".format(target, unid))
 
-		async_requests(account_urls, header, username, password)
+		async_requests(account_urls, username, password)
 
 # Asynchronously get accounts
-def async_requests(accounts, header, username, password):
+def async_requests(accounts, username, password):
 	requests = Requests(concurrent=40)
-	requests.session.headers = header
+	requests.session.headers = utility.get_headers()
 	requests.session.auth = (username, password)
 	requests.session.verify = False
 

