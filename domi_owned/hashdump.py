@@ -1,4 +1,4 @@
-# Copyright (c) 2015, Brandan Geise [coldfusion]
+# Copyright (c) 2016, Brandan Geise [coldfusion]
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -76,14 +76,17 @@ def enum_accounts(target, username, password, auth):
 
 	if len(accounts) > 0:
 		if len(accounts) == 1:
-			utility.print_good("Found {0} account, dumping account hash".format(len(accounts)))
+			plural = ''
 		else:
-			utility.print_good("Found {0} accounts, dumping accounts with hashes".format(len(accounts)))
+			plural = 's'
+		utility.print_status("Found {0} account{1}...".format(len(accounts), plural))
 
 		for unid in accounts:
 			account_urls.append("{0}/names.nsf/{1}?OpenDocument".format(target, unid))
 
 		async_requests(account_urls, username, password)
+	else:
+		utility.print_warn('No hashes found!')
 
 # Asynchronously get accounts
 def async_requests(accounts, username, password):
@@ -135,13 +138,13 @@ def write_hash(duser, dhash):
 	# Domino 5 hash format: 3dd2e1e5ac03e230243d58b8c5ada076
 	if len(dhash) == 34:
 		dhash = dhash.strip('()')
-		outfile = 'Domino_5_hashes.txt'
+		outfile = 'domino_5_hashes.txt'
 	# Domino 6 hash format: (GDpOtD35gGlyDksQRxEU)
 	elif len(dhash) == 22:
-		outfile = 'Domino_6_hashes.txt'
+		outfile = 'domino_6_hashes.txt'
 	# Domino 8 hash format: (HsjFebq0Kh9kH7aAZYc7kY30mC30mC3KmC30mCluagXrvWKj1)
 	else:
-		outfile = 'Domino_8_hashes.txt'
+		outfile = 'domino_8_hashes.txt'
 
 	# Write to file
 	output = open(outfile, 'a')

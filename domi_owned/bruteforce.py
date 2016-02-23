@@ -1,4 +1,4 @@
-# Copyright (c) 2015, Brandan Geise [coldfusion]
+# Copyright (c) 2016, Brandan Geise [coldfusion]
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -59,7 +59,7 @@ def reverse_bruteforce(target, usernames, password, auth):
 				break
 
 			if access:
-				utility.print_good("Found valid account: {0}:{1}".format(username, password))
+				utility.print_good("Found a valid account: {0} {1}".format(username, password))
 				valid_usernames.append(username)
 			else:
 				pass
@@ -73,11 +73,12 @@ def reverse_bruteforce(target, usernames, password, auth):
 	# Print found usernames
 	if len(valid_usernames) > 0:
 		if len(valid_usernames) == 1:
-			utility.print_status("Found {0} valid account...".format(len(valid_usernames)))
+			plural = ''
 		else:
-			utility.print_status("Found {0} valid accounts...".format(len(valid_usernames)))
+			plural = 's'
+		utility.print_status("Found {0} valid account{1}...".format(len(valid_usernames), plural))
 
 		for valid_username in valid_usernames:
-			utility.print_good("{0}:{1}".format(valid_username, password))
+			print "{0} {1}".format(valid_username, password)
 	else:
 		utility.print_warn('No valid accounts found!')

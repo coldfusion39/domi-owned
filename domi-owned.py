@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2015, Brandan Geise [coldfusion]
+# Copyright (c) 2016, Brandan Geise [coldfusion]
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,10 +50,9 @@ if __name__ == '__main__':
 
              IBM/Lotus Domino OWNage
 """))
-	parser.add_argument('--url', help='Domino server URL', required=True)
-	parser.add_argument('-u', '--username', help='Username', default='', required=False)
-	parser.add_argument('-U', '--usernames', help='Username list for reverse brute force', default='', required=False)
-	parser.add_argument('-p', '--password', help='Password', default='', nargs='+', required=False)
+	parser.add_argument('url', help='Domino server URL')
+	parser.add_argument('-u', help='Username or list of usernames', dest='username', default='', required=False)
+	parser.add_argument('-p', help='Password', dest='password', default='', nargs='+', required=False)
 	parser.add_argument('--hashdump', help='Dump Domino hashes', action='store_true', required=False)
 	parser.add_argument('--quickconsole', help='Interact with Domino Quick Console', action='store_true', required=False)
 	parser.add_argument('--bruteforce', help='Reverse brute force Domino server', action='store_true', required=False)
@@ -75,16 +74,16 @@ if __name__ == '__main__':
 
 		# Dump hashes
 		elif args.hashdump:
-			utility.print_status("Enumerating accounts for {0}...".format(target))
+			utility.print_status('Dumping account hashes...')
 			hashdump.enum_accounts(target, args.username, ' '.join(args.password), auth_type)
 
 		# Reverse brute force
 		elif args.bruteforce:
-			if os.path.isfile(args.usernames):
+			if os.path.isfile(args.username):
 				utility.print_status("Starting reverse brute force with {0} as the password...".format(' '.join(args.password)))
-				bruteforce.reverse_bruteforce(target, args.usernames, ' '.join(args.password), auth_type)
+				bruteforce.reverse_bruteforce(target, args.username, ' '.join(args.password), auth_type)
 			else:
-				utility.print_warn('You must supply a file containing a list of usernames!')
+				utility.print_warn('You must supply the full path to a file containing a list of usernames!')
 
 		# Fingerprint
 		else:
