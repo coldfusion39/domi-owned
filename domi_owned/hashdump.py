@@ -79,7 +79,7 @@ def enum_accounts(target, username, password, auth):
 			plural = ''
 		else:
 			plural = 's'
-		utility.print_status("Found {0} account{1}...".format(len(accounts), plural))
+		utility.print_good("Found {0} account{1}".format(len(accounts), plural))
 
 		for unid in accounts:
 			account_urls.append("{0}/names.nsf/{1}?OpenDocument".format(target, unid))
