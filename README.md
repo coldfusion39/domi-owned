@@ -35,19 +35,27 @@ interpreter, which will also delete the 'log.txt' output file.
 ## Examples ##
 ###### Fingerprint Domino server
 
-`python domi-owned.py http://domino-server.com`
+`./domi-owned.py http://domino-server.com`
+
+[![asciicast](https://asciinema.org/a/3ersiac69gte67ckfyi1bjqjw.png)](https://asciinema.org/a/3ersiac69gte67ckfyi1bjqjw?autoplay=1)
 
 ###### Preform a reverse brute force attack
 
-`python domi-owned.py http://domino-server.com -u /root/wordlists/usernames.txt -p password --bruteforce`
+`./domi-owned.py http://domino-server.com -u /root/wordlists/usernames.txt -p password --bruteforce`
+
+[![asciicast](https://asciinema.org/a/e0k09i2y83rllv8gqn9aqfdam.png)](https://asciinema.org/a/e0k09i2y83rllv8gqn9aqfdam?autoplay=1)
 
 ###### Dump Domino account hashes
 
-`python domi-owned.py http://domino-server.com -u user -p password --hashdump`
+`./domi-owned.py http://domino-server.com -u user -p password --hashdump`
+
+[![asciicast](https://asciinema.org/a/a4k4hkrpo4vngtdq90tv95zm0.png)](https://asciinema.org/a/a4k4hkrpo4vngtdq90tv95zm0?autoplay=1)
 
 ###### Interact with the Domino Quick Console
 
-`python domi-owned.py http://domino-server.com -u user -p password --quickconsole`
+`./domi-owned.py http://domino-server.com -u user -p password --quickconsole`
+
+[![asciicast](https://asciinema.org/a/ds9uhrv5w88aoagp4ziok0f0z.png)](https://asciinema.org/a/ds9uhrv5w88aoagp4ziok0f0z?autoplay=1)
 
 ## Credits ##
 Special Thanks:
