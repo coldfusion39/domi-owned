@@ -17,7 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-import fake_useragent
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -39,9 +38,8 @@ def check_url(url):
 
 # Generate user agent
 def get_headers():
-	user_agent = fake_useragent.UserAgent()
 	headers = {
-		'User-Agent':user_agent.random,
+		'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.112 Safari/537.36',
 		'Accept':'*/*',
 		'Accept-Language':'en-US,en;q=0.5',
 		'Accept-Encoding':'gzip, deflate',
