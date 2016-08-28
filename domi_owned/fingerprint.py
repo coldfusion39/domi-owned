@@ -7,8 +7,8 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -27,18 +27,20 @@ try:
 except:
 	pass
 
+
 # Get Domino version
 def fingerprint(target, username, password, auth):
 	domino_version = None
 
-	version_files = ['download/filesets/l_LOTUS_SCRIPT.inf', 
-			'download/filesets/n_LOTUS_SCRIPT.inf',
-			'download/filesets/l_SEARCH.inf',
-			'download/filesets/n_SEARCH.inf',
-			'api',
-			'homepage.nsf',
-			'help/readme.nsf'
-		]
+	version_files = [
+		'download/filesets/l_LOTUS_SCRIPT.inf',
+		'download/filesets/n_LOTUS_SCRIPT.inf',
+		'download/filesets/l_SEARCH.inf',
+		'download/filesets/n_SEARCH.inf',
+		'api',
+		'homepage.nsf',
+		'help/readme.nsf'
+	]
 
 	for version_file in version_files:
 		try:
@@ -60,6 +62,7 @@ def fingerprint(target, username, password, auth):
 
 	check_portals(target, username, password, auth)
 
+
 # Check for access to names.nsf and webadmin.nsf
 def check_portals(target, username, password, auth):
 	portals = ['names.nsf', 'webadmin.nsf']
@@ -68,7 +71,7 @@ def check_portals(target, username, password, auth):
 		portal_url = "{0}/{1}".format(target, portal)
 		try:
 			# Page not eternally accessible
-			if auth == None:
+			if auth is None:
 				utility.print_warn("Could not find {0}!".format(portal))
 
 			# Basic authentication

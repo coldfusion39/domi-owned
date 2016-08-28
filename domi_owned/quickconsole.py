@@ -7,8 +7,8 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -27,6 +27,7 @@ try:
 	requests.packages.urllib3.disable_warnings()
 except:
 	pass
+
 
 # Interact with Domino Quick Console through web requests
 class Interactive(cmd.Cmd, object):
@@ -54,7 +55,7 @@ class Interactive(cmd.Cmd, object):
 
 	# Handle Domino Quick Console
 	def quick_console(self, command, operator, target, os, path, username, password, session):
-		if session == None:
+		if session is None:
 			session = requests.Session()
 			session.auth = (username, password)
 
@@ -102,6 +103,7 @@ class Interactive(cmd.Cmd, object):
 
 	do_exit = do_EOF
 	help_exit = help_EOF
+
 
 # Check if the user has access to webadmin.nsf and get Domino server information
 def check_access(target, username, password, auth):
@@ -155,9 +157,10 @@ def check_access(target, username, password, auth):
 	except Exception as error:
 		utility.print_error("Error: {0}".format(error))
 
+
 # Test outfile redirection
 def test_command(target, os, path, username, password, session):
-	if session == None:
+	if session is None:
 		session = requests.Session()
 		session.auth = (username, password)
 
@@ -165,19 +168,20 @@ def test_command(target, os, path, username, password, session):
 
 	# Windows default Domino data paths
 	if os == 'windows':
-		paths = ['C:\Program Files\IBM\Domino\data',            # 9.0.1 Windows x64
+		paths = [
+			'C:\Program Files\IBM\Domino\data',                 # 9.0.1 Windows x64
 			'C:\Program Files\IBM\Lotus\Domino\data',           # 8.5.3 Windows x64
 			'C:\Program Files (x86)\IBM\Domino\data',           # 9.0.1 Windows x86
 			'C:\Program Files (x86)\IBM\Lotus\Domino\data',     # 8.5.3 Windows x86
-			'C:\Lotus\Domino\data'                              # Not sure, but just in case
+			'C:\Lotus\Domino\data'                              # Unknown
 		]
 
 	# Linux default Domino data path
 	else:
 		paths = ['/local/notesdata']                            # 9.0.1 Ubuntu x32
 
-	if path and path.replace('\\\\','\\') not in paths:
-		paths.insert(0, path.replace('\\\\','\\'))
+	if path and path.replace('\\\\', '\\') not in paths:
+		paths.insert(0, path.replace('\\\\', '\\'))
 
 	for local_path in paths:
 		try:
