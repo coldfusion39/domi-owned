@@ -133,7 +133,7 @@ def get_domino_hash(response):
 		pass
 
 	if domino_username and domino_hash:
-		print "{0}, {1}".format(domino_username.encode('utf-8'), domino_hash)
+		print("{0}, {1}".format(domino_username.encode('utf-8'), domino_hash))
 		write_hash(domino_username.encode('utf-8'), domino_hash)
 
 

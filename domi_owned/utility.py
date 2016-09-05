@@ -62,8 +62,8 @@ def detect_auth(target):
 
 	# Form authentication
 	elif request.status_code == 200:
-		post_regex = re.compile('method=\'post\'|method=\"post\"|method=post', re.I)
-		notes_regex = re.compile('name=\'NotesView\'|name=\"NotesView\"|name=NotesView', re.I)
+		post_regex = re.compile('method[\'\"= ]{1,4}post[\'\"]?', re.I)
+		notes_regex = re.compile('name[\'\"= ]{1,4}NotesView[\'\"]?', re.I)
 		if post_regex.search(request.text):
 			auth_type = 'form'
 		elif notes_regex.search(request.text):
@@ -87,7 +87,7 @@ def basic_auth(target, username, password):
 	basic_request = requests.get(target, headers=get_headers(), auth=(username, password), verify=False)
 
 	if 'names.nsf' in target:
-		notes_regex = re.compile('name=\'NotesView\'|name=\"NotesView\"|name=NotesView', re.I)
+		notes_regex = re.compile('name[\'\"= ]{1,4}NotesView[\'\"]?', re.I)
 		if basic_request.status_code == 200 and notes_regex.search(basic_request.text):
 			return True
 		else:
@@ -131,7 +131,7 @@ def form_auth(target, username, password):
 			# Try authenticating
 			form_request = session.post(post_url, headers=get_headers(), data=data, verify=False)
 			if 'names.nsf' in target:
-				notes_regex = re.compile('name=\'NotesView\'|name=\"NotesView\"|name=NotesView', re.I)
+				notes_regex = re.compile('name[\'\"= ]{1,4}NotesView[\'\"]?', re.I)
 
 				if notes_regex.search(form_request.text) and session.cookies['DomAuthSessId']:
 					return True, session
@@ -147,16 +147,16 @@ def form_auth(target, username, password):
 
 # Colored print messages
 def print_error(msg):
-	print "\033[1m\033[31m[-]\033[0m {0}".format(msg)
+	print("\033[1m\033[31m[-]\033[0m {0}".format(msg))
 
 
 def print_status(msg):
-	print "\033[1m\033[34m[*]\033[0m {0}".format(msg)
+	print("\033[1m\033[34m[*]\033[0m {0}".format(msg))
 
 
 def print_good(msg):
-	print "\033[1m\033[32m[+]\033[0m {0}".format(msg)
+	print("\033[1m\033[32m[+]\033[0m {0}".format(msg))
 
 
 def print_warn(msg):
-	print "\033[1m\033[33m[!]\033[0m {0}".format(msg)
+	print("\033[1m\033[33m[!]\033[0m {0}".format(msg))

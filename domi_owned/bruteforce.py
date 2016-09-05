@@ -80,6 +80,6 @@ def reverse_bruteforce(target, usernames, password, auth):
 		utility.print_status("Found {0} valid account{1}...".format(len(valid_usernames), plural))
 
 		for valid_username in valid_usernames:
-			print "{0} {1}".format(valid_username, password)
+			print("{0} {1}".format(valid_username, password))
 	else:
 		utility.print_warn('No valid accounts found!')

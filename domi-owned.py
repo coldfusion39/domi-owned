@@ -51,11 +51,11 @@ if __name__ == '__main__':
              IBM/Lotus Domino OWNage
 """))
 	parser.add_argument('url', help='Domino server URL')
-	parser.add_argument('-u', help='Username or list of usernames', dest='username', default='', required=False)
-	parser.add_argument('-p', help='Password', dest='password', default='', nargs='+', required=False)
-	parser.add_argument('--hashdump', help='Dump Domino hashes', action='store_true', required=False)
-	parser.add_argument('--quickconsole', help='Interact with Domino Quick Console', action='store_true', required=False)
-	parser.add_argument('--bruteforce', help='Reverse brute force Domino server', action='store_true', required=False)
+	parser.add_argument('-u', '--username', help='Username or list of usernames', default='', required=False)
+	parser.add_argument('-p', '--password', help='Password', default='', nargs='+', required=False)
+	parser.add_argument('-d', help='Dump Domino hashes', dest='hashdump', action='store_true', required=False)
+	parser.add_argument('-c', help='Interact with Domino Quick Console', dest='console', action='store_true', required=False)
+	parser.add_argument('-b', help='Reverse brute force Domino server', dest='bruteforce', action='store_true', required=False)
 	args = parser.parse_args()
 
 	# Process Domino URL
@@ -68,7 +68,7 @@ if __name__ == '__main__':
 		auth_type = utility.detect_auth(target)
 
 		# Interact with quick console
-		if args.quickconsole:
+		if args.console:
 			utility.print_status('Accessing Domino Quick Console...')
 			quickconsole.check_access(target, args.username, ' '.join(args.password), auth_type)
 

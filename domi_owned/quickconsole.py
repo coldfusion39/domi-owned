@@ -76,7 +76,7 @@ class Interactive(cmd.Cmd, object):
 			if send_command.status_code == 200:
 				get_response = session.get(response_url, headers=utility.get_headers(), verify=False)
 				if get_response.status_code == 200 and '>' in operator:
-					print get_response.text
+					print(get_response.text)
 				elif get_response.status_code == 200 and '>' not in operator:
 					utility.print_warn('Unable to delete outfile!')
 				elif get_response.status_code == 404 and '>' not in operator:
@@ -99,7 +99,7 @@ class Interactive(cmd.Cmd, object):
 		return True
 
 	def help_EOF(self):
-		print 'Type exit to quit.'
+		print('Type exit to quit.')
 
 	do_exit = do_EOF
 	help_exit = help_EOF
