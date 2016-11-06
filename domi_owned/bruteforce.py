@@ -56,17 +56,18 @@ def reverse_bruteforce(target, usernames, password, auth):
 				utility.print_good("{0} does not require authentication".format(names_url))
 				break
 			else:
-				utility.print_warn("Could not find {0}!".format(names_url))
+				utility.print_warn("Could not find {0}".format(names_url))
 				break
 
 			if access:
-				utility.print_good("Found a valid account: {0} {1}".format(username, password))
+				utility.print_good("Valid account: {0} {1}".format(username, password))
 				valid_usernames.append(username)
 			else:
 				pass
 
 		except KeyboardInterrupt:
 			break
+
 		except Exception as error:
 			utility.print_error("Error: {0}".format(error))
 			continue
@@ -77,9 +78,10 @@ def reverse_bruteforce(target, usernames, password, auth):
 			plural = ''
 		else:
 			plural = 's'
-		utility.print_status("Found {0} valid account{1}...".format(len(valid_usernames), plural))
+
+		utility.print_status("Found {0} valid account{1}".format(len(valid_usernames), plural))
 
 		for valid_username in valid_usernames:
 			print("{0} {1}".format(valid_username, password))
 	else:
-		utility.print_warn('No valid accounts found!')
+		utility.print_warn('No valid accounts found')

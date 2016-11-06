@@ -56,8 +56,9 @@ def enum_accounts(target, username, password, auth):
 					request = requests.get(pages, headers=utility.get_headers(), timeout=60, verify=False)
 
 				soup = BeautifulSoup(request.text, 'lxml')
-				empty_page = soup.findAll('h2')
-				if empty_page:
+
+				# Break if page not found
+				if 'No documents found' in soup.findAll('h2'):
 					break
 				else:
 					links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
@@ -68,7 +69,7 @@ def enum_accounts(target, username, password, auth):
 						else:
 							pass
 			else:
-				utility.print_warn("Unable to access {0}, bad username or password!".format(names_url))
+				utility.print_warn("Unable to access {0}, bad username or password".format(names_url))
 				break
 
 		except Exception as error:
@@ -80,6 +81,7 @@ def enum_accounts(target, username, password, auth):
 			plural = ''
 		else:
 			plural = 's'
+
 		utility.print_good("Found {0} account{1}".format(len(accounts), plural))
 
 		for unid in accounts:
@@ -87,7 +89,7 @@ def enum_accounts(target, username, password, auth):
 
 		async_requests(account_urls, username, password)
 	else:
-		utility.print_warn('No hashes found!')
+		utility.print_warn('No hashes found')
 
 
 # Asynchronously get accounts
@@ -143,9 +145,11 @@ def write_hash(duser, dhash):
 	if len(dhash) == 34:
 		dhash = dhash.strip('()')
 		outfile = 'domino_5_hashes.txt'
+
 	# Domino 6 hash format: (GDpOtD35gGlyDksQRxEU)
 	elif len(dhash) == 22:
 		outfile = 'domino_6_hashes.txt'
+
 	# Domino 8 hash format: (HsjFebq0Kh9kH7aAZYc7kY30mC30mC3KmC30mCluagXrvWKj1)
 	else:
 		outfile = 'domino_8_hashes.txt'

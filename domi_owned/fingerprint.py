@@ -51,6 +51,7 @@ def fingerprint(target, username, password, auth):
 				if version_regex.search(request.text):
 					domino_version = version_regex.search(request.text).group(2)
 					break
+
 		except Exception as error:
 			utility.print_error("Error: {0}".format(error))
 			continue
@@ -58,7 +59,7 @@ def fingerprint(target, username, password, auth):
 	if domino_version:
 		utility.print_good("Domino version: {0}".format(domino_version))
 	else:
-		utility.print_warn('Unable to fingerprint Domino version!')
+		utility.print_warn('Unable to identify Domino server version')
 
 	check_portals(target, username, password, auth)
 
@@ -72,7 +73,7 @@ def check_portals(target, username, password, auth):
 		try:
 			# Page not eternally accessible
 			if auth is None:
-				utility.print_warn("Could not find {0}!".format(portal))
+				utility.print_warn("Could not find {0}".format(portal))
 
 			# Basic authentication
 			elif auth == 'basic':
@@ -83,7 +84,7 @@ def check_portals(target, username, password, auth):
 					else:
 						utility.print_warn("{0} does not have access to {1}".format(username, portal_url))
 				else:
-					utility.print_warn("{0} requires authentication!".format(portal_url))
+					utility.print_warn("{0} requires authentication".format(portal_url))
 
 			# Form authentication
 			elif auth == 'form':
@@ -94,7 +95,7 @@ def check_portals(target, username, password, auth):
 					else:
 						utility.print_warn("{0} does not have access to {1}".format(username, portal_url))
 				else:
-					utility.print_warn("{0} requires authentication!".format(portal_url))
+					utility.print_warn("{0} requires authentication".format(portal_url))
 
 			# Page does not require authentication
 			else:

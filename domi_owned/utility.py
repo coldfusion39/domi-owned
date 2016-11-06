@@ -45,7 +45,7 @@ def get_headers():
 		'Accept': '*/*',
 		'Accept-Language': 'en-US,en;q=0.5',
 		'Accept-Encoding': 'gzip, deflate',
-		'Connection': 'keep-alive'
+		'Connection': 'close'
 	}
 
 	return headers
