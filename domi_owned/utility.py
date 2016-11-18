@@ -54,30 +54,33 @@ def get_headers():
 # Determine what type of authentication the Domino server is using
 def detect_auth(target):
 	url = "{0}/names.nsf".format(target)
-	request = requests.get(url, headers=get_headers(), allow_redirects=False, verify=False)
-
-	# Basic authentication
-	if request.status_code == 401 and 'www-authenticate' in request.headers:
-		auth_type = 'basic'
-
-	# Form authentication
-	elif request.status_code == 200:
-		post_regex = re.compile('method[\'\"= ]{1,4}post[\'\"]?', re.I)
-		notes_regex = re.compile('name[\'\"= ]{1,4}NotesView[\'\"]?', re.I)
-		if post_regex.search(request.text):
-			auth_type = 'form'
-		elif notes_regex.search(request.text):
-			auth_type = 'open'
-		else:
-			auth_type = 'form'
-
-	# Unable to access web login
-	elif request.status_code > 401:
+	try:
+		request = requests.get(url, headers=get_headers(), allow_redirects=False, verify=False)
+	except Exception as error:
 		auth_type = None
-
-	# Other types (default to basic)
 	else:
-		auth_type = 'basic'
+		# Basic authentication
+		if request.status_code == 401 and 'www-authenticate' in request.headers:
+			auth_type = 'basic'
+
+		# Form authentication
+		elif request.status_code == 200:
+			post_regex = re.compile('method[\'\"= ]{1,4}post[\'\"]?', re.I)
+			notes_regex = re.compile('name[\'\"= ]{1,4}NotesView[\'\"]?', re.I)
+			if post_regex.search(request.text):
+				auth_type = 'form'
+			elif notes_regex.search(request.text):
+				auth_type = 'open'
+			else:
+				auth_type = 'form'
+
+		# Unable to access web login
+		elif request.status_code > 401:
+			auth_type = None
+
+		# Other types (default to basic)
+		else:
+			auth_type = 'basic'
 
 	return auth_type
 

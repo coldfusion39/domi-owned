@@ -80,29 +80,33 @@ if __name__ == '__main__':
 	if target:
 		# Detect type of authentication
 		auth_type = utility.detect_auth(target)
+		if auth_type:
 
-		# Fingerprint
-		if args.action == 'fingerprint':
-			utility.print_status('Fingerprinting Domino server')
-			fingerprint.fingerprint(target, args.username, ' '.join(args.password), auth_type)
+			# Fingerprint
+			if args.action == 'fingerprint':
+				utility.print_status('Fingerprinting Domino server')
+				fingerprint.fingerprint(target, args.username, ' '.join(args.password), auth_type)
 
-		# Dump hashes
-		elif args.action == 'hashdump':
-			utility.print_status('Dumping account hashes')
-			hashdump.enum_accounts(target, args.username, ' '.join(args.password), auth_type)
+			# Dump hashes
+			elif args.action == 'hashdump':
+				utility.print_status('Dumping account hashes')
+				hashdump.enum_accounts(target, args.username, ' '.join(args.password), auth_type)
 
-		# Interact with Quick Console
-		elif args.action == 'console':
-			utility.print_status('Accessing Domino Quick Console')
-			quickconsole.check_access(target, args.username, ' '.join(args.password), auth_type)
+			# Interact with Quick Console
+			elif args.action == 'console':
+				utility.print_status('Accessing Domino Quick Console')
+				quickconsole.check_access(target, args.username, ' '.join(args.password), auth_type)
 
-		# Reverse brute force
-		elif args.action == 'brute':
-			if os.path.isfile(args.userlist):
-				utility.print_status("Starting reverse brute force with '{0}' as the password".format(' '.join(args.password)))
-				bruteforce.reverse_bruteforce(target, os.path.abspath(args.userlist), ' '.join(args.password), auth_type)
+			# Reverse brute force
 			else:
-				utility.print_warn('You must supply a file containing a list of usernames')
+				if os.path.isfile(args.userlist):
+					utility.print_status("Starting reverse brute force with '{0}' as the password".format(' '.join(args.password)))
+					bruteforce.reverse_bruteforce(target, os.path.abspath(args.userlist), ' '.join(args.password), auth_type)
+				else:
+					utility.print_warn('You must supply a file containing a list of usernames')
+
+		else:
+			utility.print_error('Failed to establish a connection to the target URL')
 
 	else:
 		utility.print_warn('Invalid URL provided')
