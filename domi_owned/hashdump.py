@@ -67,7 +67,13 @@ class HashDump(object):
 		sem = asyncio.Semaphore(40)
 		loop = asyncio.get_event_loop()
 		f = asyncio.wait([self._send_requests(account, sem) for account in self.accounts])
-		loop.run_until_complete(f)
+		try:
+			loop.run_until_complete(f)
+		except KeyboardInterrupt:
+			print('Terminating hash dump')
+		finally:
+			loop.stop()
+			loop.close()
 
 	@asyncio.coroutine
 	def _send_requests(self, account, sem):

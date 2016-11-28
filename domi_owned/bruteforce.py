@@ -51,9 +51,19 @@ class BruteForce(object):
 			self.domiowned.data = {}
 			self.domiowned.session.cookies.clear()
 			try:
-				has_access = self.domiowned.get_access(username, self.password)
+				# Use username as password
+				if self.password is None:
+					password = username
+				else:
+					password = self.password
+
+				has_access = self.domiowned.get_access(username, password)
 				if has_access['names.nsf']:
-					self.valid_accounts.append(username)
+					valid_account = {
+						'username': username,
+						'password': password
+					}
+					self.valid_accounts.append(valid_account)
 
 			except KeyboardInterrupt:
 				break

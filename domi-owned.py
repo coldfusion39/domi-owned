@@ -120,14 +120,18 @@ def main():
 					util.print_good("{0}/names.nsf does not require authentication".format(domino_url))
 				else:
 					if os.path.isfile(args.userlist):
-						util.print_status("Starting reverse brute force with '{0}' as the password".format(args.password))
-						bf = BruteForce(domino, args.userlist, args.password)
 
-						accounts = bf.bruteforce()
+						# Use username as password
+						if args.password is None:
+							util.print_status('Starting reverse brute force with username as password')
+						else:
+							util.print_status("Starting reverse brute force with '{0}' as the password".format(args.password))
+
+						accounts = BruteForce(domino, args.userlist, args.password).bruteforce()
 						if accounts:
 							util.print_good("Found {0} {1}".format(len(accounts), inflect.engine().plural('account', len(accounts))))
 							for account in accounts:
-								print("{0}:{1}".format(account, args.password))
+								print("{0}:{1}".format(account['username'], account['password']))
 						elif accounts is False:
 							util.print_error("Unable to access {0}/names.nsf".format(domino_url))
 						else:
@@ -140,11 +144,11 @@ def main():
 				endpoints = domino.get_access(args.username, args.password)
 				if endpoints['names.nsf']:
 					util.print_status('Enumerating Domino accounts')
-					hd = HashDump(domino, args.username, args.password)
-					accounts = hd.enum_accounts()
+					hashdump = HashDump(domino, args.username, args.password)
+					accounts = hashdump.enum_accounts()
 					if accounts:
 						util.print_good("Dumping {0} account {1}".format(len(accounts), inflect.engine().plural('hash', len(accounts))))
-						hd.hashdump()
+						hashdump.hashdump()
 					else:
 						util.print_warn('No account hashes found')
 				else:
