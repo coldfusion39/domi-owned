@@ -1,3 +1,6 @@
-beautifulsoup4>=4.4.1
-requests>=2.9.1
-simple-requests>=1.1.1
+asyncio>=3.4.3            ; python_version >= '3.5.2'
+aiohttp>=1.1.5            ; python_version >= '3.5.2'
+beautifulsoup4>=4.5.1     ; python_version >= '3.5.2'
+inflect>=0.2.5            ; python_version >= '3.5.2'
+requests>=2.9.1           ; python_version >= '3.5.2'
+tqdm>=4.10.0              ; python_version >= '3.5.2'

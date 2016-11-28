@@ -56,5 +56,7 @@ docs/_build/
 # PyBuilder
 target/
 
-# Misc
-*.pyc
+# Dumped hashes
+domino_5_hashes.txt
+domino_6_hashes.txt
+domino_8_hashes.txt

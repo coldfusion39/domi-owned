@@ -20,7 +20,7 @@
 import re
 import requests
 
-from domi_owned import utility
+from requests.exceptions import ConnectionError
 
 try:
 	requests.packages.urllib3.disable_warnings()
@@ -28,79 +28,43 @@ except:
 	pass
 
 
-# Get Domino version
-def fingerprint(target, username, password, auth):
-	domino_version = None
+class Fingerprint(object):
+	"""Get information about the Domino server"""
 
-	version_files = [
-		'download/filesets/l_LOTUS_SCRIPT.inf',
-		'download/filesets/n_LOTUS_SCRIPT.inf',
-		'download/filesets/l_SEARCH.inf',
-		'download/filesets/n_SEARCH.inf',
-		'api',
-		'homepage.nsf',
-		'help/readme.nsf'
-	]
+	def __init__(self, domiowned):
+		self.domiowned = domiowned
 
-	for version_file in version_files:
-		try:
-			version_url = "{0}/{1}".format(target, version_file)
-			request = requests.get(version_url, headers=utility.get_headers(), timeout=5, allow_redirects=False, verify=False)
-			if request.status_code == 200:
-				version_regex = re.compile('(version=|version\":\"|domino administrator |domino |release )([0-9.]{1,7})(\s|\")', re.I)
-				if version_regex.search(request.text):
-					domino_version = version_regex.search(request.text).group(2)
+		self.domino_version = None
+
+	# Get Domino version
+	def get_version(self):
+		version_regex = re.compile(r'(version=|version\":\"|domino administrator |domino |release )([0-9.]{1,7})(\s|\")', re.I)
+
+		version_files = [
+			'download/filesets/l_LOTUS_SCRIPT.inf',
+			'download/filesets/n_LOTUS_SCRIPT.inf',
+			'download/filesets/l_SEARCH.inf',
+			'download/filesets/n_SEARCH.inf',
+			'api',
+			'homepage.nsf',
+			'help/readme.nsf'
+		]
+
+		for version_file in version_files:
+			try:
+				response = requests.get(
+					"{0}/{1}".format(self.domiowned.url, version_file),
+					headers=self.domiowned.HEADERS,
+					allow_redirects=False,
+					timeout=5,
+					verify=False
+				)
+
+				if response.status_code == 200 and version_regex.search(response.text):
+					self.domino_version = version_regex.search(response.text).group(2)
 					break
 
-		except Exception as error:
-			utility.print_error("Error: {0}".format(error))
-			continue
+			except ConnectionError as error:
+				break
 
-	if domino_version:
-		utility.print_good("Domino version: {0}".format(domino_version))
-	else:
-		utility.print_warn('Unable to identify Domino server version')
-
-	check_portals(target, username, password, auth)
-
-
-# Check for access to names.nsf and webadmin.nsf
-def check_portals(target, username, password, auth):
-	portals = ['names.nsf', 'webadmin.nsf']
-
-	for portal in portals:
-		portal_url = "{0}/{1}".format(target, portal)
-		try:
-			# Page not eternally accessible
-			if auth is None:
-				utility.print_warn("Could not find {0}".format(portal))
-
-			# Basic authentication
-			elif auth == 'basic':
-				if len(username) > 0:
-					access = utility.basic_auth(portal_url, username, password)
-					if access:
-						utility.print_good("{0} has access to {1}".format(username, portal_url))
-					else:
-						utility.print_warn("{0} does not have access to {1}".format(username, portal_url))
-				else:
-					utility.print_warn("{0} requires authentication".format(portal_url))
-
-			# Form authentication
-			elif auth == 'form':
-				if len(username) > 0:
-					access, session = utility.form_auth(portal_url, username, password)
-					if access:
-						utility.print_good("{0} has access to {1}".format(username, portal_url))
-					else:
-						utility.print_warn("{0} does not have access to {1}".format(username, portal_url))
-				else:
-					utility.print_warn("{0} requires authentication".format(portal_url))
-
-			# Page does not require authentication
-			else:
-				utility.print_good("{0} does not require authentication".format(portal_url))
-
-		except Exception as error:
-			utility.print_error("Error: {0}".format(error))
-			continue
+		return self.domino_version
