@@ -30,7 +30,7 @@ If a username and password are given, using the `--username` and `--password` ar
 
 
 ### Reverse Brute Force ###
-To perform a reverse brute force attack against a Domino server, run Domi-Owned with the `bruteforce` action argument, the server URL, a list of usernames, and an optional password with the `--password` argument. Domi-Owned will then try to authenticate to 'names.nsf', returning successful accounts.
+To perform a reverse brute force attack against a Domino server, run Domi-Owned with the `bruteforce` action argument, the server URL, and a list of usernames. Optionally, a password can be specified with the `--password` argument. If a password is not provided, Domi-Owned will use the username, from the username list, as the account password (i.e. 'admin:admin' or 'jsmith:jsmith'). Domi-Owned will then try to authenticate to 'names.nsf', returning successful accounts.
 
 #### Example: ####
 `./domi-owned.py bruteforce http://domino-server.com usernames.txt --password PASSWORD`
