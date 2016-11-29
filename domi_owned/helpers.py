@@ -27,11 +27,11 @@ class Helpers(object):
 		pass
 
 	def check_url(self, url):
-		valid_url = None
-
-		url_regex = re.compile(r'https?://[a-z0-9\-.:]+', re.I)
+		url_regex = re.compile(r'(https?:\/\/[\d\w.:-]+)', re.I)
 		if url_regex.search(url):
-			valid_url = url_regex.search(url).group(0)
+			valid_url = url_regex.search(url).group(1)
+		else:
+			valid_url = None
 
 		return valid_url
 

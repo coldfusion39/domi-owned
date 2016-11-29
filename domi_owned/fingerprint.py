@@ -20,8 +20,6 @@
 import re
 import requests
 
-from requests.exceptions import ConnectionError
-
 try:
 	requests.packages.urllib3.disable_warnings()
 except:
@@ -38,7 +36,7 @@ class Fingerprint(object):
 
 	# Get Domino version
 	def get_version(self):
-		version_regex = re.compile(r'(version=|version\":\"|domino administrator |domino |release )([0-9.]{1,7})(\s|\")', re.I)
+		version_regex = re.compile(r'(?:version|domino administrator|domino|release)[=":\s]{0,4}([\d.]+)(?:\s|\")?', re.I)
 
 		version_files = [
 			'download/filesets/l_LOTUS_SCRIPT.inf',
@@ -47,7 +45,11 @@ class Fingerprint(object):
 			'download/filesets/n_SEARCH.inf',
 			'api',
 			'homepage.nsf',
-			'help/readme.nsf'
+			'help/readme.nsf?OpenAbout',
+			'iNotes/Forms5.nsf',
+			'iNotes/Forms6.nsf',
+			'iNotes/Forms7.nsf',
+			'iNotes/Forms8.nsf'
 		]
 
 		for version_file in version_files:
@@ -55,16 +57,15 @@ class Fingerprint(object):
 				response = requests.get(
 					"{0}/{1}".format(self.domiowned.url, version_file),
 					headers=self.domiowned.HEADERS,
-					allow_redirects=False,
-					timeout=5,
+					timeout=10,
 					verify=False
 				)
 
-				if response.status_code == 200 and version_regex.search(response.text):
-					self.domino_version = version_regex.search(response.text).group(2)
+				if version_regex.search(response.text):
+					self.domino_version = version_regex.search(response.text).group(1)
 					break
 
-			except ConnectionError as error:
+			except requests.exceptions.RequestException as error:
 				break
 
 		return self.domino_version

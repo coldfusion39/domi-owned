@@ -22,7 +22,6 @@ import re
 import requests
 
 from bs4 import BeautifulSoup
-from requests.exceptions import ConnectionError
 
 from .helpers import Helpers
 
@@ -40,7 +39,7 @@ class DomiOwned(object):
 		self.session = requests.Session()
 		self.HEADERS = {
 			'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36',
-			'Accept': '*/*',
+			'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 			'Accept-Language': 'en-US,en;q=0.5',
 			'Accept-Encoding': 'gzip, deflate',
 			'Connection': 'close'
@@ -54,20 +53,22 @@ class DomiOwned(object):
 		}
 
 		self.data = {}
-		self.auth_type = None
 		self.url = url
+		self.auth_type = None
+		self.names_location = None
 
 	def get_auth(self):
 		try:
 			response = requests.get(
-				"{0}/names.nsf".format(self.url),
+				"{0}/names.nsf?Open".format(self.url),
 				headers=self.HEADERS,
-				allow_redirects=False,
-				timeout=5,
+				timeout=10,
 				verify=False
 			)
-		except ConnectionError as error:
-			pass
+
+		except requests.exceptions.RequestException as error:
+			return self.auth_type
+
 		else:
 			# Basic authentication
 			if response.status_code == 401 and 'www-authenticate' in response.headers:
@@ -76,7 +77,7 @@ class DomiOwned(object):
 			# Form authentication
 			elif response.status_code == 200:
 				form_regex = re.compile(r'method[\'\"= ]{1,4}post[\'\"]?', re.I)
-				open_regex = re.compile(r'name[\'\"= ]{1,4}NotesView[\'\"]?', re.I)
+				open_regex = re.compile(r'name[\'\"= ]{1,4}notesview[\'\"]?', re.I)
 				if form_regex.search(response.text):
 					self.auth_type = 'form'
 				elif open_regex.search(response.text):
@@ -86,7 +87,7 @@ class DomiOwned(object):
 
 			# Unable to access web login
 			else:
-				self.auth_type = None
+				self.auth_type = False
 
 		return self.auth_type
 
@@ -97,8 +98,8 @@ class DomiOwned(object):
 			'webadmin.nsf': None
 		}
 
-		names_regex = re.compile(r'name[\'\"= ]{1,4}NotesView[\'\"]?', re.I)
-		webadmin_regex = re.compile(r'<title>.*Administration</title>', re.I)
+		names_regex = re.compile(r'name[\'\"= ]{1,4}notesview[\'\"]?', re.I)
+		webadmin_regex = re.compile(r'<title>.*administration</title>', re.I)
 
 		for portal in portals:
 			response = self.authenticate(username, password, portal)
@@ -200,7 +201,7 @@ class DomiOwned(object):
 			"{0}/{1}".format(self.url, endpoint),
 			headers=self.HEADERS,
 			auth=(username, password),
-			timeout=5,
+			timeout=10,
 			verify=False
 		)
 
@@ -210,32 +211,47 @@ class DomiOwned(object):
 	def _form_auth(self, username, password, endpoint):
 		if not self.data:
 			response = self.session.get(
-				"{0}/names.nsf".format(self.url),
+				"{0}/names.nsf?Open".format(self.url),
 				headers=self.HEADERS,
-				timeout=5,
+				timeout=10,
 				verify=False
 			)
 
 			if response.status_code == 200:
-				soup = BeautifulSoup(response.text, 'lxml')
+				soup = BeautifulSoup((response.text).replace('\\"', '"'), 'lxml')
 
-				self.data = {
-					soup.find('input', attrs={'type': 'text'})['name']: username,
-					soup.find('input', attrs={'type': 'password'})['name']: password
-				}
+				# Get username and password form names
+				username_field = soup.find('input', attrs={'name': re.compile('user.+', re.I)})
+				password_field = soup.find('input', attrs={'type': 'password'})
+				if username_field and password_field:
+					self.data = {
+						username_field['name']: username,
+						password_field['name']: password
+					}
+				else:
+					self.data = {
+						'Username': username,
+						'Password': password
+					}
+
+				# Get redirect location
+				if soup.find('input', attrs={'type': 'hidden', 'name': re.compile('redirect.+', re.I)}):
+					redirect_field = soup.find('input', attrs={'type': 'hidden', 'name': re.compile('redirect.+', re.I)})['name']
+					redirect_location = soup.find('input', attrs={'type': 'hidden', 'name': re.compile('redirect.+', re.I)})['value']
+					self.data.update({redirect_field: redirect_location})
 
 				response = self.session.post(
 					"{0}/{1}".format(self.url, soup.find('form')['action']),
 					headers=self.HEADERS,
 					data=self.data,
-					timeout=5,
+					timeout=10,
 					verify=False
 				)
 
 		response = self.session.get(
 			"{0}/{1}".format(self.url, endpoint),
 			headers=self.HEADERS,
-			timeout=5,
+			timeout=10,
 			verify=False
 		)
 
@@ -246,7 +262,7 @@ class DomiOwned(object):
 		response = self.session.get(
 			"{0}/{1}".format(self.url, endpoint),
 			headers=self.HEADERS,
-			timeout=5,
+			timeout=10,
 			verify=False
 		)
 

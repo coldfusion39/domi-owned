@@ -30,6 +30,7 @@ class BruteForce(object):
 		self.domiowned = domiowned
 		self.usernames = usernames
 		self.password = password
+		self.error_count = 0
 
 		self.valid_accounts = []
 
@@ -69,9 +70,11 @@ class BruteForce(object):
 				break
 
 			except Exception as error:
-				print(error)
-				self.valid_accounts = False
-				break
+				self.error_count += 1
+				if self.error_count >= 3:
+					break
+				else:
+					continue
 
 			progress_bar.update(1)
 			time.sleep(random.random())

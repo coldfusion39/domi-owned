@@ -79,6 +79,7 @@ def main():
 
 	util = Helpers()
 	domino_url = util.check_url(args.url)
+
 	if domino_url:
 		domino = DomiOwned(domino_url)
 
@@ -120,8 +121,6 @@ def main():
 					util.print_good("{0}/names.nsf does not require authentication".format(domino_url))
 				else:
 					if os.path.isfile(args.userlist):
-
-						# Use username as password
 						if args.password is None:
 							util.print_status('Starting reverse brute force with username as password')
 						else:
@@ -167,6 +166,9 @@ def main():
 						util.print_error('Domino Quick Console is not active')
 				else:
 					util.print_error("Unable to access {0}/webadmin.nsf, bad username or password".format(domino_url))
+
+		elif auth_type is False:
+			util.print_error('Unable to find an instance of names.nsf')
 		else:
 			util.print_error('Failed to establish a connection to the Domino server')
 	else:

