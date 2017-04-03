@@ -27,7 +27,7 @@ If a username and password are given, using the `--username` and `--password` ar
 #### Example: ####
 `./domi-owned.py fingerprint http://domino-server.com`
 
-[![asciicast](https://asciinema.org/a/7fksp7tnishweis2rayu7tk92.png)](https://asciinema.org/a/7fksp7tnishweis2rayu7tk92)
+[![asciicast](https://asciinema.org/a/70ai7hzvnpy9s725hn6csi95t.png)](https://asciinema.org/a/70ai7hzvnpy9s725hn6csi95t)
 
 
 ### Enumerate ###
@@ -36,7 +36,7 @@ To enumerate what common or default Domino directories are accessible, run Domi-
 #### Example: ####
 `./domi-owned.py enumerate http://domino-server.com`
 
-[![asciicast](https://asciinema.org/a/3iv2jwjcx3gmnawbr238bbl3i.png)](https://asciinema.org/a/3iv2jwjcx3gmnawbr238bbl3i)
+[![asciicast](https://asciinema.org/a/djovybmla84o692cy9g05ubag.png)](https://asciinema.org/a/djovybmla84o692cy9g05ubag)
 
 
 ### Reverse Brute Force ###
@@ -45,16 +45,16 @@ To perform a reverse brute force attack against a Domino server, run Domi-Owned 
 #### Example: ####
 `./domi-owned.py bruteforce http://domino-server.com usernames.txt --password PASSWORD`
 
-[![asciicast](https://asciinema.org/a/aks7z9jbw47awfq36ouj1bz0u.png)](https://asciinema.org/a/aks7z9jbw47awfq36ouj1bz0u)
+[![asciicast](https://asciinema.org/a/7twvq5fj8gkzltnhsm7qttexq.png)](https://asciinema.org/a/7twvq5fj8gkzltnhsm7qttexq)
 
 
-### Dump Hashes ###
+### Hash Dump###
 To dump all Domino accounts with a __non-empty__ hash, run Domi-Owned with the `hashdump` action argument and the server URL. Optionally, supply Domi-Owned with a username and password using the `--username` and `--password` arguments. This will print the results to the screen and write the account hashes to separate out-files, depending on the hash type (Domino 5, Domino 6, Domino 8).
 
 #### Example: ####
 `./domi-owned.py hashdump http://domino-server.com --username USERNAME --password PASSWORD`
 
-[![asciicast](https://asciinema.org/a/f4y9r75zbyea50c5iuni7630g.png)](https://asciinema.org/a/f4y9r75zbyea50c5iuni7630g)
+[![asciicast](https://asciinema.org/a/bshcclg89hzlx0lmdg9b9q9zx.png)](https://asciinema.org/a/bshcclg89hzlx0lmdg9b9q9zx)
 
 
 ### Quick Console ###
@@ -65,7 +65,7 @@ If the `quickconsole` action argument is given, Domi-Owned will access the Domin
 #### Example: ####
 `./domi-owned.py quickconsole http://domino-server.com --username USERNAME --password PASSWORD`
 
-[![asciicast](https://asciinema.org/a/81ppbmk28488fk5wjq90mlmie.png)](https://asciinema.org/a/81ppbmk28488fk5wjq90mlmie)
+[![asciicast](https://asciinema.org/a/84kphfh12ngm5iwn5qc9q1hke.png)](https://asciinema.org/a/84kphfh12ngm5iwn5qc9q1hke)
 
 
 ## Credits ##
