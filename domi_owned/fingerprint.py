@@ -1,4 +1,4 @@
-# Copyright (c) 2016, Brandan Geise [coldfusion]
+# Copyright (c) 2017, Brandan Geise [coldfusion]
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -17,28 +17,47 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-import re
 import requests
 
-try:
-	requests.packages.urllib3.disable_warnings()
-except:
-	pass
+from .main import DomiOwned
 
 
-class Fingerprint(object):
-	"""Get information about the Domino server"""
+class Fingerprint(DomiOwned):
 
-	def __init__(self, domiowned):
-		self.domiowned = domiowned
+	def fingerprint(self):
+		"""
+		Get information about the Domino server.
+		"""
+		domino_version = self.get_version()
+		if domino_version:
+			self.logger.info("Domino version: {0}".format(domino_version))
+		else:
+			self.logger.warn('Unable to identify Domino server version')
 
-		self.domino_version = None
+		# Get authentication type
+		self.logger.info("Authentication type: {0}".format(self.auth_type.capitalize()))
 
-	# Get Domino version
+		# Check URL access
+		endpoints = self.check_access(self.username, self.password)
+		for endpoint in endpoints:
+			if endpoints[endpoint] is None:
+				self.logger.warn("Could not find {0}/{1}".format(self.url, endpoint))
+			elif endpoints[endpoint]:
+				if self.username:
+					self.logger.info("{0} has access to {1}/{2}".format(self.username, self.url, endpoint))
+				else:
+					self.logger.info("{0}/{1} does not require authentication".format(self.url, endpoint))
+			else:
+				if self.username:
+					self.logger.warn("{0} does not have access to {1}/{2}".format(self.username, self.url, endpoint))
+				else:
+					self.logger.warn("{0}/{1} requires authentication".format(self.url, endpoint))
+
 	def get_version(self):
-		version_regex = re.compile(r'(?:version|domino administrator|domino|release)[=":\s]{0,4}([\d.]+)(?:\s|\")?', re.I)
-
-		version_files = [
+		"""
+		Get Domino server version.
+		"""
+		version_dirs = [
 			'download/filesets/l_LOTUS_SCRIPT.inf',
 			'download/filesets/n_LOTUS_SCRIPT.inf',
 			'download/filesets/l_SEARCH.inf',
@@ -49,23 +68,17 @@ class Fingerprint(object):
 			'iNotes/Forms5.nsf',
 			'iNotes/Forms6.nsf',
 			'iNotes/Forms7.nsf',
-			'iNotes/Forms8.nsf'
+			'iNotes/Forms8.nsf',
+			'iNotes/Forms9.nsf'
 		]
 
-		for version_file in version_files:
+		for version_dir in version_dirs:
 			try:
-				response = requests.get(
-					"{0}/{1}".format(self.domiowned.url, version_file),
-					headers=self.domiowned.HEADERS,
-					timeout=10,
-					verify=False
-				)
-
-				if version_regex.search(response.text):
-					self.domino_version = version_regex.search(response.text).group(1)
-					break
-
-			except requests.exceptions.RequestException as error:
+				response = self.session.get("{0}/{1}".format(self.url, version_dir))
+			except (requests.exceptions.RequestException, requests.exceptions.ReadTimeoutError) as error:
 				break
 
-		return self.domino_version
+			if self.utilities.VERSION_REGEX.search(response.text):
+				return self.utilities.VERSION_REGEX.search(response.text).group(1)
+
+		return None

@@ -13,6 +13,7 @@ Run `pip3 install -r requirements.txt` to install the required python modules.
  * [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/)
  * [inflect](https://github.com/pwdyson/inflect.py)
  * [requests](https://github.com/kennethreitz/requests)
+ * [tabulate](https://bitbucket.org/astanin/python-tabulate)
  * [tqdm](https://github.com/noamraph/tqdm)
 
 ## Usage ##
@@ -29,13 +30,22 @@ If a username and password are given, using the `--username` and `--password` ar
 [![asciicast](https://asciinema.org/a/7fksp7tnishweis2rayu7tk92.png)](https://asciinema.org/a/7fksp7tnishweis2rayu7tk92)
 
 
+### Enumerate ###
+To enumerate what common or default Domino directories are accessible, run Domi-Owned with the `enumerate` action argument, and the server URL. Optionally, supply Domi-Owned with a username and password, using the `--username` and `--password` arguments, to see what directories that specific user has access to. To use a custom directory wordlist supply Domi-Owned with a file containing a list of web directories using the `--wordlist` argument.
+
+#### Example: ####
+`./domi-owned.py enumerate http://domino-server.com`
+
+[![asciicast](https://asciinema.org/a/3iv2jwjcx3gmnawbr238bbl3i.png)](https://asciinema.org/a/3iv2jwjcx3gmnawbr238bbl3i)
+
+
 ### Reverse Brute Force ###
 To perform a reverse brute force attack against a Domino server, run Domi-Owned with the `bruteforce` action argument, the server URL, and a list of usernames. Optionally, a password can be specified with the `--password` argument. If a password is not provided, Domi-Owned will use the username, from the username list, as the account password (i.e. 'admin:admin' or 'jsmith:jsmith'). Domi-Owned will then try to authenticate to 'names.nsf', returning successful accounts.
 
 #### Example: ####
 `./domi-owned.py bruteforce http://domino-server.com usernames.txt --password PASSWORD`
 
-[![asciicast](https://asciinema.org/a/abq9xjoij0mknmy5ws00aokxv.png)](https://asciinema.org/a/abq9xjoij0mknmy5ws00aokxv)
+[![asciicast](https://asciinema.org/a/aks7z9jbw47awfq36ouj1bz0u.png)](https://asciinema.org/a/aks7z9jbw47awfq36ouj1bz0u)
 
 
 ### Dump Hashes ###
