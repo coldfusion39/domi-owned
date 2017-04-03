@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# Copyright (c) 2016, Brandan Geise [coldfusion]
+#!/usr/bin/env python3
+# Copyright (c) 2017, Brandan Geise [coldfusion]
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,94 +19,89 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import argparse
-import os
-import sys
 
-from domi_owned import bruteforce
-from domi_owned import fingerprint
-from domi_owned import hashdump
-from domi_owned import quickconsole
-from domi_owned import utility
+from domi_owned.bruteforce import BruteForce
+from domi_owned.enumerate import Enumerate
+from domi_owned.fingerprint import Fingerprint
+from domi_owned.hashdump import HashDump
+from domi_owned.quickconsole import QuickConsole
+from domi_owned.utilities import Banner
 
-sys.dont_write_bytecode = True
 
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser(
-		prog='domi-owned.py',
-		usage='./domi-owned.py [fingerprint, hashdump, console, brute] [-h]',
-		formatter_class=argparse.RawDescriptionHelpFormatter,
-		description=("""
-         __________   __________ __________ 
-        |          |\|          |          |\\
-        |  *    *  |||  *  *  * |        * ||
-        |  *    *  |||          |     *    ||
-        |  *    *  |||  *  *  * |  *       ||
-        |__________|||__________|__________||
-        |          || `---------------------`
-        |  *    *  ||
-        |          ||
-        |  *    *  ||
-        |__________||
-         `----------`
-
-             IBM/Lotus Domino OWNage
-"""))
+def main():
+	parser = argparse.ArgumentParser(usage='./domi-owned.py [fingerprint, enumerate, bruteforce, hashdump, quickconsole] [-h]', formatter_class=argparse.RawDescriptionHelpFormatter, description=(Banner.SHOW))
 	subparsers = parser.add_subparsers(dest='action', help='Action to perform on IBM/Lotus Domino server')
 
-	fingerprint_parser = subparsers.add_parser('fingerprint', help='Fingerprint Domino server', usage='./domi-owned.py fingerprint URL --username USERNAME --password PASSWORD')
+	fingerprint_parser = subparsers.add_parser('fingerprint', help='Fingerprint the Domino server', usage='./domi-owned.py fingerprint URL --username USERNAME --password PASSWORD')
 	fingerprint_parser.add_argument('url', help='Domino server URL')
-	fingerprint_parser.add_argument('--username', help='Username', default='', required=False)
-	fingerprint_parser.add_argument('--password', help='Password', default='', nargs='+', required=False)
+	fingerprint_parser.add_argument('--username', help='Username', default=None)
+	fingerprint_parser.add_argument('--password', help='Password', default=None)
 
-	dump_parser = subparsers.add_parser('hashdump', help='Dump Domino hashes', usage='./domi-owned.py hashdump URL --username USERNAME --password PASSWORD')
-	dump_parser.add_argument('url', help='Domino server URL')
-	dump_parser.add_argument('--username', help='Username', default='', required=False)
-	dump_parser.add_argument('--password', help='Password', default='', nargs='+', required=False)
+	enum_parser = subparsers.add_parser('enumerate', help='Enumerate Domino files and directories', usage='./domi-owned.py enumerate URL --username USERNAME --password PASSWORD --wordlist WORDLIST')
+	enum_parser.add_argument('url', help='Domino server URL')
+	enum_parser.add_argument('--wordlist', help='Wordlist containing Domino files and directories', default=None)
+	enum_parser.add_argument('--username', help='Username', default=None)
+	enum_parser.add_argument('--password', help='Password', default=None)
 
-	console_parser = subparsers.add_parser('console', help='Interact with Domino Quick Console', usage='./domi-owned.py console URL --username USERNAME --password PASSWORD')
-	console_parser.add_argument('url', help='Domino server URL')
-	console_parser.add_argument('--username', help='Username', default='', required=False)
-	console_parser.add_argument('--password', help='Password', default='', nargs='+', required=False)
-
-	brute_parser = subparsers.add_parser('brute', help='Reverse brute force Domino server', usage='./domi-owned.py brute URL USERLIST --password PASSWORD')
+	brute_parser = subparsers.add_parser('bruteforce', help='Reverse brute force the Domino server', usage='./domi-owned.py bruteforce URL USERLIST --password PASSWORD')
 	brute_parser.add_argument('url', help='Domino server URL')
 	brute_parser.add_argument('userlist', help='List of usernames')
-	brute_parser.add_argument('--password', help='Password', default='', nargs='+', required=False)
+	brute_parser.add_argument('--password', help='Password', default=None)
+
+	dump_parser = subparsers.add_parser('hashdump', help='Dump Domino account hashes', usage='./domi-owned.py hashdump URL --username USERNAME --password PASSWORD')
+	dump_parser.add_argument('url', help='Domino server URL')
+	dump_parser.add_argument('--username', help='Username', default=None)
+	dump_parser.add_argument('--password', help='Password', default=None)
+
+	console_parser = subparsers.add_parser('quickconsole', help='Interact with the Domino Quick Console', usage='./domi-owned.py quickconsole URL --username USERNAME --password PASSWORD')
+	console_parser.add_argument('url', help='Domino server URL')
+	console_parser.add_argument('--username', help='Username', default=None)
+	console_parser.add_argument('--password', help='Password', default=None)
 
 	args = parser.parse_args()
 
-	# Process Domino URL
-	target = utility.check_url(args.url)
-	if target:
-		# Detect type of authentication
-		auth_type = utility.detect_auth(target)
-		if auth_type:
+	# Fingerprint
+	if args.action == 'fingerprint':
+		print_status('Fingerprinting Domino server')
+		domino = Fingerprint(args.url, username=args.username, password=args.password)
+		domino.fingerprint()
 
-			# Fingerprint
-			if args.action == 'fingerprint':
-				utility.print_status('Fingerprinting Domino server')
-				fingerprint.fingerprint(target, args.username, ' '.join(args.password), auth_type)
+	# Enumerate
+	elif args.action == 'enumerate':
+		print_status('Enumerating Domino URLs')
+		domino = Enumerate(args.url, username=args.username, password=args.password)
+		domino.enumerate(args.wordlist)
 
-			# Dump hashes
-			elif args.action == 'hashdump':
-				utility.print_status('Dumping account hashes')
-				hashdump.enum_accounts(target, args.username, ' '.join(args.password), auth_type)
-
-			# Interact with Quick Console
-			elif args.action == 'console':
-				utility.print_status('Accessing Domino Quick Console')
-				quickconsole.check_access(target, args.username, ' '.join(args.password), auth_type)
-
-			# Reverse brute force
-			else:
-				if os.path.isfile(args.userlist):
-					utility.print_status("Starting reverse brute force with '{0}' as the password".format(' '.join(args.password)))
-					bruteforce.reverse_bruteforce(target, os.path.abspath(args.userlist), ' '.join(args.password), auth_type)
-				else:
-					utility.print_warn('You must supply a file containing a list of usernames')
-
+	# Brute force
+	elif args.action == 'bruteforce':
+		if args.password:
+			print_status("Starting reverse brute force with '{0}' as the password".format(args.password))
 		else:
-			utility.print_error('Failed to establish a connection to the target URL')
+			print_status('Starting reverse brute force with username as password')
 
+		domino = BruteForce(args.url, password=args.password)
+		domino.bruteforce(args.userlist)
+
+	# Hash dump
+	elif args.action == 'hashdump':
+		print_status('Dumping Domino account hashes')
+		domino = HashDump(args.url, username=args.username, password=args.password)
+		domino.dump()
+
+	# Quick Console
+	elif args.action == 'quickconsole':
+		print_status('Accessing Domino Quick Console')
+		domino = QuickConsole(args.url, username=args.username, password=args.password)
+		domino.quickconsole()
+
+	# No actions given, print help
 	else:
-		utility.print_warn('Invalid URL provided')
+		parser.print_help()
+
+
+def print_status(message):
+	print("\033[1m\033[34m[*]\033[0m {0}".format(message))
+
+
+if __name__ == '__main__':
+	main()

