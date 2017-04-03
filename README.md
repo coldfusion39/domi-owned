@@ -45,10 +45,10 @@ To perform a reverse brute force attack against a Domino server, run Domi-Owned 
 #### Example: ####
 `./domi-owned.py bruteforce http://domino-server.com usernames.txt --password PASSWORD`
 
-[![asciicast](https://asciinema.org/a/7twvq5fj8gkzltnhsm7qttexq.png)](https://asciinema.org/a/7twvq5fj8gkzltnhsm7qttexq)
+[![asciicast](https://asciinema.org/a/ecd067vqxx2l2b30bvdynhoau.png)](https://asciinema.org/a/ecd067vqxx2l2b30bvdynhoau)
 
 
-### Hash Dump###
+### Hash Dump ###
 To dump all Domino accounts with a __non-empty__ hash, run Domi-Owned with the `hashdump` action argument and the server URL. Optionally, supply Domi-Owned with a username and password using the `--username` and `--password` arguments. This will print the results to the screen and write the account hashes to separate out-files, depending on the hash type (Domino 5, Domino 6, Domino 8).
 
 #### Example: ####
